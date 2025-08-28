@@ -18,6 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "mcp[cli]>=1.12.4",
+    "PyYAML>=6.0",
 ]
 
 [project.scripts]

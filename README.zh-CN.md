@@ -64,8 +64,25 @@ MCP 服务器暴露两个工具：
 
 如有其他使用场景需求，欢迎提交 issue。
 
+## 自定义 Review 场景
+
+默认的 review 模板存放在项目根目录的 `review_prompts.yaml` 中。你可以修改此文件或新增场景，例如：
+
+```yaml
+security: |
+  专注于安全漏洞的代码审查。
+  {custom_prompt}
+```
+
+然后使用：
+
+```python
+codex_review("security", work_dir, target)
+```
+
 ## 安全性
 
 - 安全模式：默认只读操作，保护你的环境
 - 可写模式：需要完整能力时使用 `--yolo` 标志
 - 顺序执行：避免多代理并行操作产生冲突
+

@@ -58,6 +58,17 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest
 claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 ```
 
+### 3. Customize environment
+
+Copy the provided `env.config.json` and adjust dependencies, interpreter path or virtual env location as needed:
+
+```bash
+cp env.config.json my-env.json
+# edit my-env.json to change python version, packages, python_path or venv_path
+```
+
+Set `python_path` to the full path of a local interpreter (e.g., `F:\python310\python.exe` on Windows) and `venv_path` to where the virtual environment should be created. Running `main.py` will read `env.config.json` to create/activate that environment and install listed packages. If the file is missing, it falls back to `uv.lock`.
+
 ## Tools
 
 The MCP server exposes two tools:

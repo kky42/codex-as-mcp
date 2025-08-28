@@ -56,6 +56,17 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest
 claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 ```
 
+### 3. 自定义环境
+
+复制根目录的 `env.config.json` 并根据需要调整依赖、解释器路径或虚拟环境位置：
+
+```bash
+cp env.config.json my-env.json
+# 编辑 my-env.json 修改 Python 版本、依赖、python_path 或 venv_path
+```
+
+将 `python_path` 设置为本地解释器的完整路径（如 Windows 上的 `F:\python310\python.exe`），并将 `venv_path` 指向希望创建虚拟环境的位置。运行 `main.py` 时会优先读取 `env.config.json` 创建/激活该环境并安装依赖；若文件不存在则回退到 `uv.lock`。
+
 ## 工具
 
 MCP 服务器暴露两个工具：
@@ -69,3 +80,4 @@ MCP 服务器暴露两个工具：
 - 安全模式：默认只读操作，保护你的环境
 - 可写模式：需要完整能力时使用 `--yolo` 标志
 - 顺序执行：避免多代理并行操作产生冲突
+

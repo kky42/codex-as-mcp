@@ -58,11 +58,20 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 
 ## 工具
 
-MCP 服务器暴露两个工具：
-- `codex_execute(prompt, work_dir)`：通用的 Codex 执行
-- `codex_review(review_type, work_dir, target?, prompt?)`：专项代码审查
+MCP 服务器暴露三个工具：
+- `codex_execute(prompt, work_dir, session_id?)`：通用的 Codex 执行（支持会话）
+- `codex_review(review_type, work_dir, target?, prompt?, session_id?)`：专项代码审查（支持会话）
+- `codex_continue(session_id, message, work_dir)`：在现有会话中追加消息并获取响应
 
 如有其他使用场景需求，欢迎提交 issue。
+
+## 会话管理
+
+所有工具都可以接收可选的 `session_id`，用于维持对话上下文。
+
+1. **开启**：调用 `codex_execute` 或 `codex_review` 时不传 `session_id`，服务器会创建新的会话并返回该 `session_id`。
+2. **保持**：后续调用时携带此 `session_id`，即可继续在同一会话中对话。
+3. **继续**：使用 `codex_continue(session_id, message, work_dir)` 在指定会话里追加消息并获取回复。
 
 ## 安全性
 

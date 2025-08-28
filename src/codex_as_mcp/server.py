@@ -5,10 +5,15 @@ import argparse
 import sys
 from typing import List, Dict, Optional, Sequence
 
+from .session_manager import SessionManager
+
 # Global safe mode setting
 SAFE_MODE = True
 
 mcp = FastMCP("codex-as-mcp")
+
+# 会话管理器，用于根据 session_id 维护历史
+session_manager = SessionManager()
 
 HEADER_RE = re.compile(
     r'^'
@@ -176,147 +181,128 @@ Please provide a comprehensive review with prioritized recommendations."""
 
 
 @mcp.tool()
-async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
-    """
-    Execute prompt using codex for general purpose.
+async def codex_execute(prompt: str, work_dir: str, session_id: Optional[str] = None, ctx: Context = None) -> Dict[str, str]:
+    """执行通用 Codex 指令，可选地绑定到已有会话"""
 
-    Args:
-        prompt (str): The prompt for codex
-        work_dir (str): The working directory, e.g. /Users/kevin/Projects/demo_project
-        ctx (Context): MCP context for logging
-    """
-    cmd = [
-        "codex", "exec",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--cd", work_dir,
-        prompt,
-    ]
-    
-    try:
-        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
-        # Defensive check for empty blocks
-        if not blocks:
-            return "Error: No codex output blocks found"
-        return blocks[-1]["raw"]
-    except ValueError as e:
-        return f"Error: {str(e)}"
-    except subprocess.CalledProcessError as e:
-        # Include output for better debugging
-        output = e.output if hasattr(e, 'output') else (e.stderr or "")
-        return f"Error executing codex command: {e}\nOutput: {output}"
-    except IndexError as e:
-        return "Error: No codex output blocks found (list index out of range)"
-    except Exception as e:
-        return f"Unexpected error: {str(e)}"
+    if not session_id:
+        session_id = session_manager.new_session()
+    history = session_manager.get(session_id)
+    history_text = "\n".join(m["content"] for m in history)
+    final_prompt = f"{history_text}\n{prompt}" if history_text else prompt
 
-
-@mcp.tool()
-async def codex_review(review_type: str, work_dir: str, target: str = "", prompt: str = "", ctx: Context = None) -> str:
-    """
-    Execute code review using codex with pre-defined review prompts for different scenarios.
-    
-    This tool provides specialized code review capabilities for various development scenarios,
-    combining pre-defined review templates with custom instructions.
-
-    Args:
-        review_type (str): Type of code review to perform. Must be one of:
-            - "files": Review specific files for code quality, bugs, and best practices
-                       Target: comma-separated file paths (e.g., "src/main.py,src/utils.py")
-                       Example: review_type="files", target="src/auth.py,src/db.py"
-            
-            - "staged": Review staged changes (git diff --cached) ready for commit
-                       Target: not needed (automatically detects staged changes)
-                       Example: review_type="staged"
-            
-            - "unstaged": Review unstaged changes (git diff) in working directory
-                         Target: not needed (automatically detects unstaged changes)
-                         Example: review_type="unstaged"
-            
-            - "changes": Review specific commit range or git changes
-                        Target: git commit range (e.g., "HEAD~3..HEAD", "main..feature-branch")
-                        Example: review_type="changes", target="HEAD~2..HEAD"
-            
-            - "pr": Review pull request changes comprehensively
-                   Target: pull request number or identifier
-                   Example: review_type="pr", target="123"
-            
-            - "general": General codebase review for architecture and quality
-                        Target: optional, can specify scope or leave empty for full codebase
-                        Example: review_type="general", target="src/"
-
-        work_dir (str): The working directory path (e.g., "/Users/kevin/Projects/demo_project")
-        
-        target (str, optional): Target specification based on review_type:
-            - For "files": comma-separated file paths
-            - For "staged"/"unstaged": not needed (leave empty)
-            - For "changes": git commit range (commit1..commit2)
-            - For "pr": pull request number/identifier
-            - For "general": optional scope (directory path or leave empty)
-        
-        prompt (str, optional): Additional custom instructions to append to the review prompt.
-                               Use this to specify particular aspects to focus on or additional context.
-                               Example: "Focus on security vulnerabilities and performance"
-        
-        ctx (Context, optional): MCP context for logging
-
-    Returns:
-        str: Detailed code review results from codex
-
-    Examples:
-        # Review specific files with security focus
-        codex_review("files", "/path/to/project", "src/auth.py,src/api.py", "Focus on security vulnerabilities")
-        
-        # Review staged changes before commit
-        codex_review("staged", "/path/to/project")
-        
-        # Review unstaged work-in-progress changes
-        codex_review("unstaged", "/path/to/project", "", "Check for incomplete implementations")
-        
-        # Review recent commits
-        codex_review("changes", "/path/to/project", "HEAD~3..HEAD", "Look for performance regressions")
-        
-        # Review pull request
-        codex_review("pr", "/path/to/project", "456", "Focus on test coverage")
-        
-        # General codebase review
-        codex_review("general", "/path/to/project", "src/", "Identify technical debt")
-    """
-    if review_type not in REVIEW_PROMPTS:
-        raise ValueError(f"Invalid review_type '{review_type}'. Must be one of: {list(REVIEW_PROMPTS.keys())}")
-    
-    # Get the appropriate review prompt template
-    template = REVIEW_PROMPTS[review_type]
-    
-    # Format the template with target and custom prompt
-    custom_prompt_section = f"Additional instructions: {prompt}" if prompt else ""
-    final_prompt = template.format(
-        target=target if target else "current scope",
-        custom_prompt=f"\n{custom_prompt_section}" if custom_prompt_section else ""
-    )
-    
     cmd = [
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
         final_prompt,
     ]
-    
+
     try:
         blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
-        # Defensive check for empty blocks
         if not blocks:
-            return "Error: No codex output blocks found"
-        return blocks[-1]["raw"]
+            return {"session_id": session_id, "output": "Error: No codex output blocks found"}
+        response = blocks[-1]["raw"]
+        session_manager.append(session_id, "user", prompt)
+        session_manager.append(session_id, "assistant", response)
+        return {"session_id": session_id, "output": response}
     except ValueError as e:
-        return f"Error: {str(e)}"
+        return {"session_id": session_id, "output": f"Error: {str(e)}"}
     except subprocess.CalledProcessError as e:
-        # Include output for better debugging
         output = e.output if hasattr(e, 'output') else (e.stderr or "")
-        return f"Error executing codex command: {e}\nOutput: {output}"
-    except IndexError as e:
-        return "Error: No codex output blocks found (list index out of range)"
+        return {"session_id": session_id, "output": f"Error executing codex command: {e}\nOutput: {output}"}
+    except IndexError:
+        return {"session_id": session_id, "output": "Error: No codex output blocks found (list index out of range)"}
     except Exception as e:
-        return f"Unexpected error: {str(e)}"
+        return {"session_id": session_id, "output": f"Unexpected error: {str(e)}"}
+
+
+@mcp.tool()
+async def codex_continue(session_id: str, message: str, work_dir: str, ctx: Context = None) -> Dict[str, str]:
+    """在指定会话里追加消息并获取响应"""
+
+    history = session_manager.get(session_id)
+    history_text = "\n".join(m["content"] for m in history)
+    final_prompt = f"{history_text}\n{message}" if history_text else message
+
+    cmd = [
+        "codex", "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--cd", work_dir,
+        final_prompt,
+    ]
+
+    try:
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        if not blocks:
+            return {"session_id": session_id, "output": "Error: No codex output blocks found"}
+        response = blocks[-1]["raw"]
+        session_manager.append(session_id, "user", message)
+        session_manager.append(session_id, "assistant", response)
+        return {"session_id": session_id, "output": response}
+    except ValueError as e:
+        return {"session_id": session_id, "output": f"Error: {str(e)}"}
+    except subprocess.CalledProcessError as e:
+        output = e.output if hasattr(e, 'output') else (e.stderr or "")
+        return {"session_id": session_id, "output": f"Error executing codex command: {e}\nOutput: {output}"}
+    except IndexError:
+        return {"session_id": session_id, "output": "Error: No codex output blocks found (list index out of range)"}
+    except Exception as e:
+        return {"session_id": session_id, "output": f"Unexpected error: {str(e)}"}
+
+@mcp.tool()
+async def codex_review(
+    review_type: str,
+    work_dir: str,
+    target: str = "",
+    prompt: str = "",
+    session_id: Optional[str] = None,
+    ctx: Context = None,
+) -> Dict[str, str]:
+    """使用预定义模板进行代码审查，可选地绑定到会话"""
+
+    if review_type not in REVIEW_PROMPTS:
+        raise ValueError(
+            f"Invalid review_type '{review_type}'. Must be one of: {list(REVIEW_PROMPTS.keys())}"
+        )
+
+    if not session_id:
+        session_id = session_manager.new_session()
+    history = session_manager.get(session_id)
+
+    template = REVIEW_PROMPTS[review_type]
+    custom_prompt_section = f"Additional instructions: {prompt}" if prompt else ""
+    user_prompt = template.format(
+        target=target if target else "current scope",
+        custom_prompt=f"\n{custom_prompt_section}" if custom_prompt_section else "",
+    )
+
+    history_text = "\n".join(m["content"] for m in history)
+    final_prompt = f"{history_text}\n{user_prompt}" if history_text else user_prompt
+
+    cmd = [
+        "codex", "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--cd", work_dir,
+        final_prompt,
+    ]
+
+    try:
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        if not blocks:
+            return {"session_id": session_id, "output": "Error: No codex output blocks found"}
+        response = blocks[-1]["raw"]
+        session_manager.append(session_id, "user", user_prompt)
+        session_manager.append(session_id, "assistant", response)
+        return {"session_id": session_id, "output": response}
+    except ValueError as e:
+        return {"session_id": session_id, "output": f"Error: {str(e)}"}
+    except subprocess.CalledProcessError as e:
+        output = e.output if hasattr(e, 'output') else (e.stderr or "")
+        return {"session_id": session_id, "output": f"Error executing codex command: {e}\nOutput: {output}"}
+    except IndexError:
+        return {"session_id": session_id, "output": "Error: No codex output blocks found (list index out of range)"}
+    except Exception as e:
+        return {"session_id": session_id, "output": f"Unexpected error: {str(e)}"}
 
 
 def main():

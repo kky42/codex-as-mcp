@@ -60,11 +60,22 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 
 ## Tools
 
-The MCP server exposes two tools:
-- `codex_execute(prompt, work_dir)` - General purpose codex execution
-- `codex_review(review_type, work_dir, target?, prompt?)` - Specialized code review
+The MCP server exposes three tools:
+- `codex_execute(prompt, work_dir, session_id?)` - General purpose codex execution with optional session context
+- `codex_review(review_type, work_dir, target?, prompt?, session_id?)` - Specialized code review with session support
+- `codex_continue(session_id, message, work_dir)` - Append message within an existing session and get response
 
 If you have any other use case requirements, feel free to open issue.
+
+## Session Management
+
+Each tool accepts an optional `session_id` to maintain conversation context.
+
+1. **Start**: Call `codex_execute` or `codex_review` without `session_id` to create a new session. The server returns the generated `session_id`.
+2. **Keep**: Pass the `session_id` on subsequent calls to continue the conversation.
+3. **Continue**: Use `codex_continue(session_id, message, work_dir)` to append follow-up messages within the same session.
+
+This allows the MCP server to provide conversational continuity with Codex.
 
 ## Safety
 

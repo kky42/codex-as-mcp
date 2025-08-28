@@ -61,8 +61,29 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 ## Tools
 
 The MCP server exposes two tools:
-- `codex_execute(prompt, work_dir)` - General purpose codex execution
-- `codex_review(review_type, work_dir, target?, prompt?)` - Specialized code review
+- `codex_execute(prompt, work_dir, model?)` - General purpose codex execution
+- `codex_review(review_type, work_dir, target?, prompt?, model?)` - Specialized code review
+
+### Specify model
+
+Both tools 支持可选的 `model` 参数，用于选择 Codex 模型。当前暂时可选模型：
+
+```log
+▌  1. gpt-5 minimal  — fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks
+▌  2. gpt-5 low  — balances speed with some reasoning; useful for straightforward queries and short explanations
+▌> 3. gpt-5 medium (current)  — default setting; provides a solid balance of reasoning depth and latency for general-purpose tasks
+▌  4. gpt-5 high  — maximizes reasoning depth for complex or ambiguous problems
+```
+
+传入其他模型将提示不支持并回退到 Codex 默认模型。
+
+```bash
+# 指定模型执行代码
+claude mcp call codex codex_execute '{"prompt":"print(1)","work_dir":"/path","model":"gpt-5 high"}'
+
+# 指定模型进行代码审查
+claude mcp call codex codex_review '{"review_type":"staged","work_dir":"/path","model":"gpt-5 low"}'
+```
 
 If you have any other use case requirements, feel free to open issue.
 

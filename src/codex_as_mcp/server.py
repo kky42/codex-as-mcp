@@ -175,22 +175,53 @@ Please provide a comprehensive review with prioritized recommendations."""
 }
 
 
+# Temporary gpt-5 model options
+ALLOWED_MODELS = {
+    "gpt-5 minimal": "fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks",
+    "gpt-5 low": "balances speed with some reasoning; useful for straightforward queries and short explanations",
+    "gpt-5 medium": "default setting; provides a solid balance of reasoning depth and latency for general-purpose tasks",
+    "gpt-5 high": "maximizes reasoning depth for complex or ambiguous problems",
+}
+
+
 @mcp.tool()
-async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
+async def codex_execute(prompt: str, work_dir: str, model: str = "", ctx: Context = None) -> str:
     """
-    Execute prompt using codex for general purpose.
+    通用 Codex 执行工具，可选指定模型。
+
+    当前暂时可选模型：
+    1. gpt-5 minimal  — fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks
+    2. gpt-5 low      — balances speed with some reasoning; useful for straightforward queries and short explanations
+    3. gpt-5 medium   — default setting; provides a solid balance of reasoning depth and latency for general-purpose tasks
+    4. gpt-5 high     — maximizes reasoning depth for complex or ambiguous problems
 
     Args:
-        prompt (str): The prompt for codex
-        work_dir (str): The working directory, e.g. /Users/kevin/Projects/demo_project
-        ctx (Context): MCP context for logging
+        prompt (str): Codex 的提示词
+        work_dir (str): 工作目录，例如 /Users/kevin/Projects/demo_project
+        model (str, optional): 指定 Codex 模型，不填或传入其他值将使用默认模型
+        ctx (Context, optional): MCP 上下文日志
+
+    示例:
+        codex_execute("print('hello')", "/path/to/project", model="gpt-5 high")
     """
     cmd = [
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
-        prompt,
     ]
+    if model:
+        if model in ALLOWED_MODELS:
+            cmd.extend(["--model", model])
+        else:
+            warn = (
+                f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
+                + "\n".join(f"- {m} — {desc}" for m, desc in ALLOWED_MODELS.items())
+            )
+            if ctx:
+                ctx.console.print(warn)
+            else:
+                print(warn)
+    cmd.append(prompt)
     
     try:
         blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
@@ -211,10 +242,23 @@ async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
 
 
 @mcp.tool()
-async def codex_review(review_type: str, work_dir: str, target: str = "", prompt: str = "", ctx: Context = None) -> str:
+async def codex_review(
+    review_type: str,
+    work_dir: str,
+    target: str = "",
+    prompt: str = "",
+    model: str = "",
+    ctx: Context = None,
+) -> str:
     """
-    Execute code review using codex with pre-defined review prompts for different scenarios.
-    
+    基于预设模板执行 Codex 代码审查，可选指定模型。
+
+    当前暂时可选模型：
+    1. gpt-5 minimal  — fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks
+    2. gpt-5 low      — balances speed with some reasoning; useful for straightforward queries and short explanations
+    3. gpt-5 medium   — default setting; provides a solid balance of reasoning depth and latency for general-purpose tasks
+    4. gpt-5 high     — maximizes reasoning depth for complex or ambiguous problems
+
     This tool provides specialized code review capabilities for various development scenarios,
     combining pre-defined review templates with custom instructions.
 
@@ -256,7 +300,8 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
         prompt (str, optional): Additional custom instructions to append to the review prompt.
                                Use this to specify particular aspects to focus on or additional context.
                                Example: "Focus on security vulnerabilities and performance"
-        
+
+        model (str, optional): 指定 Codex 模型，不填或传入其他值将使用默认模型
         ctx (Context, optional): MCP context for logging
 
     Returns:
@@ -264,10 +309,16 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
 
     Examples:
         # Review specific files with security focus
-        codex_review("files", "/path/to/project", "src/auth.py,src/api.py", "Focus on security vulnerabilities")
-        
-        # Review staged changes before commit
-        codex_review("staged", "/path/to/project")
+        codex_review(
+            "files",
+            "/path/to/project",
+            "src/auth.py,src/api.py",
+            "Focus on security vulnerabilities",
+            model="gpt-5 high",
+        )
+
+        # Review staged changes before commit using specific model
+        codex_review("staged", "/path/to/project", model="gpt-5 low")
         
         # Review unstaged work-in-progress changes
         codex_review("unstaged", "/path/to/project", "", "Check for incomplete implementations")
@@ -298,8 +349,20 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
-        final_prompt,
     ]
+    if model:
+        if model in ALLOWED_MODELS:
+            cmd.extend(["--model", model])
+        else:
+            warn = (
+                f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
+                + "\n".join(f"- {m} — {desc}" for m, desc in ALLOWED_MODELS.items())
+            )
+            if ctx:
+                ctx.console.print(warn)
+            else:
+                print(warn)
+    cmd.append(final_prompt)
     
     try:
         blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)

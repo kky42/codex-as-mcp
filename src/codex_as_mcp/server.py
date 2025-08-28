@@ -7,6 +7,7 @@ from typing import List, Dict, Optional, Sequence
 
 # Global safe mode setting
 SAFE_MODE = True
+DEFAULT_TIMEOUT = 300.0
 
 mcp = FastMCP("codex-as-mcp")
 
@@ -31,7 +32,8 @@ def run_and_extract_codex_blocks(
     cmd: Sequence[str],
     tags: Optional[Sequence[str]] = ("codex",),
     last_n: int = 1,
-    safe_mode: bool = True
+    safe_mode: bool = True,
+    timeout: Optional[float] = None,
 ) -> List[Dict[str, str]]:
     """
     运行命令并抽取日志块。每个块由形如
@@ -42,6 +44,8 @@ def run_and_extract_codex_blocks(
     :param cmd: 完整命令（列表形式）
     :param tags: 需要过滤的 tag 列表（大小写不敏感）。None 表示不过滤。
     :param last_n: 返回最后 N 个匹配块
+    :param safe_mode: 是否启用安全模式
+    :param timeout: 子进程超时时间（秒）
     :return: [{timestamp, tag, body, raw}] 按时间顺序（旧->新）
     :raises ValueError: 当没有找到匹配的日志块时
     :raises subprocess.CalledProcessError: 当命令执行失败时
@@ -55,7 +59,12 @@ def run_and_extract_codex_blocks(
             final_cmd[idx:idx+1] = ["--sandbox", "read-only", "--ask-for-approval", "never"]
     
     proc = subprocess.run(
-        final_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False
+        final_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+        timeout=timeout if timeout is not None else DEFAULT_TIMEOUT,
     )
     out = proc.stdout
     
@@ -176,13 +185,19 @@ Please provide a comprehensive review with prioritized recommendations."""
 
 
 @mcp.tool()
-async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
+async def codex_execute(
+    prompt: str,
+    work_dir: str,
+    timeout: Optional[float] = None,
+    ctx: Context = None,
+) -> str:
     """
     Execute prompt using codex for general purpose.
 
     Args:
         prompt (str): The prompt for codex
         work_dir (str): The working directory, e.g. /Users/kevin/Projects/demo_project
+        timeout (float, optional): Timeout in seconds for codex execution
         ctx (Context): MCP context for logging
     """
     cmd = [
@@ -193,7 +208,7 @@ async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
     ]
     
     try:
-        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
         # Defensive check for empty blocks
         if not blocks:
             return "Error: No codex output blocks found"
@@ -204,6 +219,8 @@ async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
         # Include output for better debugging
         output = e.output if hasattr(e, 'output') else (e.stderr or "")
         return f"Error executing codex command: {e}\nOutput: {output}"
+    except subprocess.TimeoutExpired as e:
+        return f"Error: Command timed out after {e.timeout} seconds"
     except IndexError as e:
         return "Error: No codex output blocks found (list index out of range)"
     except Exception as e:
@@ -211,10 +228,17 @@ async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
 
 
 @mcp.tool()
-async def codex_review(review_type: str, work_dir: str, target: str = "", prompt: str = "", ctx: Context = None) -> str:
+async def codex_review(
+    review_type: str,
+    work_dir: str,
+    target: str = "",
+    prompt: str = "",
+    timeout: Optional[float] = None,
+    ctx: Context = None,
+) -> str:
     """
     Execute code review using codex with pre-defined review prompts for different scenarios.
-    
+
     This tool provides specialized code review capabilities for various development scenarios,
     combining pre-defined review templates with custom instructions.
 
@@ -256,7 +280,8 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
         prompt (str, optional): Additional custom instructions to append to the review prompt.
                                Use this to specify particular aspects to focus on or additional context.
                                Example: "Focus on security vulnerabilities and performance"
-        
+
+        timeout (float, optional): Timeout in seconds for codex execution
         ctx (Context, optional): MCP context for logging
 
     Returns:
@@ -302,7 +327,7 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
     ]
     
     try:
-        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
         # Defensive check for empty blocks
         if not blocks:
             return "Error: No codex output blocks found"
@@ -313,6 +338,8 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
         # Include output for better debugging
         output = e.output if hasattr(e, 'output') else (e.stderr or "")
         return f"Error executing codex command: {e}\nOutput: {output}"
+    except subprocess.TimeoutExpired as e:
+        return f"Error: Command timed out after {e.timeout} seconds"
     except IndexError as e:
         return "Error: No codex output blocks found (list index out of range)"
     except Exception as e:
@@ -321,7 +348,7 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
 
 def main():
     """Entry point for the MCP server"""
-    global SAFE_MODE
+    global SAFE_MODE, DEFAULT_TIMEOUT
     
     parser = argparse.ArgumentParser(
         prog="codex-as-mcp",
@@ -334,10 +361,16 @@ def main():
     )
     parser.add_argument(
         "--help-modes",
-        action="store_true", 
+        action="store_true",
         help="Show detailed explanation of safe vs writable modes"
     )
-    
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=300.0,
+        help="Timeout in seconds for codex commands"
+    )
+
     args = parser.parse_args()
     
     if args.help_modes:
@@ -363,9 +396,10 @@ and conflicting system modifications. Sequential execution is safer.
 """)
         sys.exit(0)
     
-    # Set safe mode based on --yolo flag
+    # Set safe mode and timeout based on CLI args
     SAFE_MODE = not args.yolo
-    
+    DEFAULT_TIMEOUT = args.timeout
+
     if SAFE_MODE:
         print("🔒 Running in SAFE mode (read-only). Use --yolo for writable mode.")
     else:

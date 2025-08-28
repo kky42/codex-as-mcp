@@ -56,6 +56,9 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest
 
 # Writable mode
 claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
+
+# Custom timeout (default 300s)
+claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --timeout 600
 ```
 
 ## Tools

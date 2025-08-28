@@ -66,6 +66,21 @@ The MCP server exposes two tools:
 
 If you have any other use case requirements, feel free to open issue.
 
+## MCP Option
+
+Enable codex to automatically connect to an MCP server via `--mcp`:
+
+```bash
+codex run --mcp
+```
+
+Or in Python:
+
+```python
+import subprocess
+subprocess.run(["codex", "run", "--mcp", "..."])
+```
+
 ## Safety
 
 - **Safe Mode**: Default read-only operations protect your environment

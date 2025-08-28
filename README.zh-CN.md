@@ -64,6 +64,21 @@ MCP 服务器暴露两个工具：
 
 如有其他使用场景需求，欢迎提交 issue。
 
+## MCP 选项
+
+使用 `--mcp` 可以让 codex 自动连接 MCP 服务器：
+
+```bash
+codex run --mcp
+```
+
+或者在 Python 中：
+
+```python
+import subprocess
+subprocess.run(["codex", "run", "--mcp", "..."])
+```
+
 ## 安全性
 
 - 安全模式：默认只读操作，保护你的环境

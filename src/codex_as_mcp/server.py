@@ -43,19 +43,27 @@ def run_and_extract_codex_blocks(
     :param tags: 需要过滤的 tag 列表（大小写不敏感）。None 表示不过滤。
     :param last_n: 返回最后 N 个匹配块
     :return: [{timestamp, tag, body, raw}] 按时间顺序（旧->新）
+    :raises ValueError: 当没有找到匹配的日志块时
+    :raises subprocess.CalledProcessError: 当命令执行失败时
     """
     # Modify command based on safe mode
     final_cmd = list(cmd)
     if safe_mode:
-        # Replace --full-auto with read-only sandbox
-        if "--full-auto" in final_cmd:
-            idx = final_cmd.index("--full-auto")
-            final_cmd[idx:idx+1] = ["--sandbox", "read-only"]
+        # Replace --dangerously-bypass-approvals-and-sandbox with read-only mode
+        if "--dangerously-bypass-approvals-and-sandbox" in final_cmd:
+            idx = final_cmd.index("--dangerously-bypass-approvals-and-sandbox")
+            final_cmd[idx:idx+1] = ["--sandbox", "read-only", "--ask-for-approval", "never"]
     
     proc = subprocess.run(
-        final_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        final_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False
     )
     out = proc.stdout
+    
+    # Check for non-zero exit code and raise with captured output
+    if proc.returncode != 0:
+        error = subprocess.CalledProcessError(proc.returncode, final_cmd, output=out)
+        error.stdout = out
+        raise error
 
     blocks = []
     for m in BLOCK_RE.finditer(out):
@@ -64,6 +72,12 @@ def run_and_extract_codex_blocks(
             raw = f'[{ts}] {tag}\n{body}'
             blocks.append({"timestamp": ts, "tag": tag, "body": body, "raw": raw})
 
+    if not blocks:
+        # Include command and output snippet for debugging
+        cmd_str = " ".join(final_cmd)
+        output_preview = (out[:200] + "..." if len(out) > 200 else out) if out else "(no output)"
+        raise ValueError(f"No matching codex blocks found in command output.\nCommand: {cmd_str}\nOutput preview: {output_preview}")
+    
     # 只取最后 1 个
     return blocks[-last_n:]
 
@@ -173,11 +187,27 @@ async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
     """
     cmd = [
         "codex", "exec",
-        "--full-auto", "--skip-git-repo-check",
+        "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
         prompt,
     ]
-    return run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)[-1]["raw"]
+    
+    try:
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        # Defensive check for empty blocks
+        if not blocks:
+            return "Error: No codex output blocks found"
+        return blocks[-1]["raw"]
+    except ValueError as e:
+        return f"Error: {str(e)}"
+    except subprocess.CalledProcessError as e:
+        # Include output for better debugging
+        output = e.output if hasattr(e, 'output') else (e.stderr or "")
+        return f"Error executing codex command: {e}\nOutput: {output}"
+    except IndexError as e:
+        return "Error: No codex output blocks found (list index out of range)"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
 
 
 @mcp.tool()
@@ -258,19 +288,35 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
     template = REVIEW_PROMPTS[review_type]
     
     # Format the template with target and custom prompt
-    custom_prompt_section = f"\nAdditional instructions: {prompt}" if prompt else ""
+    custom_prompt_section = f"Additional instructions: {prompt}" if prompt else ""
     final_prompt = template.format(
         target=target if target else "current scope",
-        custom_prompt=custom_prompt_section
+        custom_prompt=f"\n{custom_prompt_section}" if custom_prompt_section else ""
     )
     
     cmd = [
         "codex", "exec",
-        "--full-auto", "--skip-git-repo-check",
+        "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
         final_prompt,
     ]
-    return run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)[-1]["raw"]
+    
+    try:
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        # Defensive check for empty blocks
+        if not blocks:
+            return "Error: No codex output blocks found"
+        return blocks[-1]["raw"]
+    except ValueError as e:
+        return f"Error: {str(e)}"
+    except subprocess.CalledProcessError as e:
+        # Include output for better debugging
+        output = e.output if hasattr(e, 'output') else (e.stderr or "")
+        return f"Error executing codex command: {e}\nOutput: {output}"
+    except IndexError as e:
+        return "Error: No codex output blocks found (list index out of range)"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
 
 
 def main():

@@ -5,10 +5,18 @@
 ## 安装与配置
 
 ### 1. 安装 Codex CLI
+
+**⚠️ 需要 Codex CLI 版本 >= 0.25.0**
+
 ```bash
-npm install -g @openai/codex
+npm install -g @openai/codex@latest
 codex login
+
+# 验证版本
+codex --version
 ```
+
+> **重要**: 此 MCP 服务器使用需要 Codex CLI v0.25.0 或更高版本的 `--sandbox` 和 `--ask-for-approval` 标志。不支持早期版本。
 
 ### 2. 配置 MCP
 

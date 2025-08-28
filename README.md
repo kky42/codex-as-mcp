@@ -7,10 +7,18 @@ Enable Claude Code, Cursor and other AI tools to call Codex for task execution. 
 ## Setup
 
 ### 1. Install Codex CLI
+
+**⚠️ Requires Codex CLI version >= 0.25.0**
+
 ```bash
-npm install -g @openai/codex
+npm install -g @openai/codex@latest
 codex login
+
+# Verify version
+codex --version
 ```
+
+> **Important**: This MCP server uses `--sandbox` and `--ask-for-approval` flags that require Codex CLI v0.25.0 or later. Earlier versions are not supported.
 
 ### 2. Configure MCP
 

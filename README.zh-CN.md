@@ -88,13 +88,14 @@ cp env.config.json my-env.json
 
 ## 工具
 
-MCP 服务器暴露两个工具：
-- `codex_execute(prompt, work_dir, model?)`：通用的 Codex 执行
-- `codex_review(review_type, work_dir, target?, prompt?, model?)`：专项代码审查
+MCP 服务器暴露三个工具：
+- `codex_execute(prompt, work_dir, model?, timeout?, session_id?)`：通用的 Codex 执行（可选会话）
+- `codex_review(review_type, work_dir, target?, prompt?, model?, timeout?, session_id?)`：专项代码审查（可选会话）
+- `codex_continue(session_id, message, work_dir, model?, timeout?)`：在现有会话中追加消息并获取回复
 
 ### 指定模型
 
-两个工具均支持可选的 `model` 参数，用于选择 Codex 模型。当前暂时可选模型：
+所有工具均支持可选的 `model` 参数，用于选择 Codex 模型。当前暂时可选模型：
 
 ```log
 ▌  1. gpt-5 minimal  — fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks
@@ -114,6 +115,14 @@ claude mcp call codex codex_review '{"review_type":"staged","work_dir":"/path","
 ```
 
 如有其他使用场景需求，欢迎提交 issue。
+
+## 会话管理
+
+所有工具都可以接收可选的 `session_id`，用于维持对话上下文。
+
+1. **开启**：调用 `codex_execute` 或 `codex_review` 时不传 `session_id`，服务器会创建新的会话并返回该 `session_id`。
+2. **保持**：后续调用时携带此 `session_id`，即可继续在同一会话中对话。
+3. **继续**：使用 `codex_continue(session_id, message, work_dir, model?, timeout?)` 在指定会话里追加消息并获取回复。
 
 ## MCP 选项
 

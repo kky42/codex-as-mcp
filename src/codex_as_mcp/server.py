@@ -8,12 +8,17 @@ from pathlib import Path
 import yaml
 import os
 
+from .session_manager import SessionManager
+
 # Global settings
 SAFE_MODE = True
 DEFAULT_TIMEOUT = 300.0
 AUTO_APPROVE = False
 
 mcp = FastMCP("codex-as-mcp")
+
+# 会话管理器，用于根据 session_id 维护历史
+session_manager = SessionManager()
 
 HEADER_RE = re.compile(
     r'^'
@@ -205,7 +210,6 @@ Focus on:
 Please provide a comprehensive review with prioritized recommendations."""
 }
 
-
 def load_review_prompts() -> Dict[str, str]:
     """Load review prompts from project root YAML file.
 
@@ -238,123 +242,22 @@ ALLOWED_MODELS = {
 
 
 @mcp.tool()
-async def codex_execute(prompt: str, work_dir: str, model: str = "", timeout: Optional[float] = None, ctx: Context = None) -> str:
-    """
-    通用 Codex 执行工具，支持指定模型与超时。
-
-    参数:
-        - prompt (str): Codex 提示词
-        - work_dir (str): 工作目录（例如 /Users/kevin/Projects/demo_project）
-        - model (str, 可选): 指定 Codex 模型；未提供或不在允许列表则使用默认模型
-        - timeout (float, 可选): codex 命令超时时间（秒）
-        - ctx (Context, 可选): MCP 上下文（用于日志输出）
-
-    示例:
-        codex_execute("print('hello')", "/path/to/project", model="gpt-5 high", timeout=120)
-    """
-    cmd = [
-        "codex", "exec",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "--cd", work_dir,
-    ]
-    if model:
-        if model in ALLOWED_MODELS:
-            cmd.extend(["--model", model])
-        else:
-            warn = (
-                f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
-                + "\n".join(f"- {m} — {desc}" for m, desc in ALLOWED_MODELS.items())
-            )
-            if ctx:
-                ctx.console.print(warn)
-            else:
-                print(warn)
-    cmd.append(prompt)
-    
-    try:
-        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
-        # Defensive check for empty blocks
-        if not blocks:
-            return "Error: No codex output blocks found"
-        return blocks[-1]["raw"]
-    except ValueError as e:
-        return f"Error: {str(e)}"
-    except subprocess.CalledProcessError as e:
-        # Include output for better debugging
-        output = e.output if hasattr(e, 'output') else (e.stderr or "")
-        return f"Error executing codex command: {e}\nOutput: {output}"
-    except subprocess.TimeoutExpired as e:
-        return f"Error: Command timed out after {e.timeout} seconds"
-    except IndexError as e:
-        return "Error: No codex output blocks found (list index out of range)"
-    except Exception as e:
-        return f"Unexpected error: {str(e)}"
-
-
-@mcp.tool()
-async def codex_review(
-    review_type: str,
+async def codex_execute(
+    prompt: str,
     work_dir: str,
-    target: str = "",
-    prompt: str = "",
     model: str = "",
     timeout: Optional[float] = None,
+    session_id: Optional[str] = None,
     ctx: Context = None,
-) -> str:
-    """
-    基于预设模板执行 Codex 代码审查，支持指定模型与超时。
+) -> Dict[str, str]:
+    """通用 Codex 执行（支持会话、模型与超时），返回 {session_id, output}"""
 
-    该工具针对多种开发场景提供专业化的代码审查能力，
-    将预设的审查模板与自定义说明组合使用以获得更高质量的审查结果。
+    if not session_id:
+        session_id = session_manager.new_session()
+    history = session_manager.get(session_id)
+    history_text = "\n".join(m["content"] for m in history)
+    final_prompt = f"{history_text}\n{prompt}" if history_text else prompt
 
-    参数:
-        - review_type (str): 审查类型，必须是以下之一：
-            - "files": 审查指定文件的代码质量、缺陷与最佳实践
-                         目标：逗号分隔的文件路径（例如 "src/main.py,src/utils.py"）
-            - "staged": 审查已暂存更改（git diff --cached），评估是否可提交
-                         目标：不需要（自动检测）
-            - "unstaged": 审查未暂存更改（git diff），发现未完成实现等问题
-                         目标：不需要（自动检测）
-            - "changes": 审查指定提交范围的变更
-                         目标：Git 提交范围（例如 "HEAD~3..HEAD"）
-            - "pr": 审查指定拉取请求的整体变更
-                         目标：PR 编号或标识（例如 "123"）
-            - "general": 通用代码库审查（架构与质量）
-                         目标：可选的目录范围，或留空以覆盖全仓库
-
-        - work_dir (str): 工作目录路径（例如 "/Users/kevin/Projects/demo_project"）
-        - target (str, 可选): 随审查类型变化的目标参数；见上述说明
-        - prompt (str, 可选): 追加到审查模板的自定义说明（关注点/上下文）
-        - model (str, 可选): 指定 Codex 模型；未提供或不在允许列表则使用默认模型
-        - timeout (float, 可选): codex 命令超时时间（秒）
-        - ctx (Context, 可选): MCP 上下文（用于日志输出）
-
-    返回:
-        - str: 来自 Codex 的详细代码审查结果
-
-    示例:
-        # 审查指定文件并关注安全问题
-        codex_review("files", "/path/to/project", "src/auth.py,src/api.py", "关注安全漏洞", model="gpt-5 high")
-
-        # 提交前审查已暂存更改
-        codex_review("staged", "/path/to/project", model="gpt-5 low")
-
-        # 审查最近提交范围
-        codex_review("changes", "/path/to/project", "HEAD~3..HEAD", "关注性能回退")
-    """
-    if review_type not in REVIEW_PROMPTS:
-        raise ValueError(f"Invalid review_type '{review_type}'. Must be one of: {list(REVIEW_PROMPTS.keys())}")
-    
-    # Get the appropriate review prompt template
-    template = REVIEW_PROMPTS[review_type]
-    
-    # Format the template with target and custom prompt
-    custom_prompt_section = f"Additional instructions: {prompt}" if prompt else ""
-    final_prompt = template.format(
-        target=target if target else "current scope",
-        custom_prompt=f"\n{custom_prompt_section}" if custom_prompt_section else ""
-    )
-    
     cmd = [
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",
@@ -373,25 +276,152 @@ async def codex_review(
             else:
                 print(warn)
     cmd.append(final_prompt)
-    
+
     try:
         blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
-        # Defensive check for empty blocks
         if not blocks:
-            return "Error: No codex output blocks found"
-        return blocks[-1]["raw"]
+            return {"session_id": session_id, "output": "Error: No codex output blocks found"}
+        response = blocks[-1]["raw"]
+        session_manager.append(session_id, "user", prompt)
+        session_manager.append(session_id, "assistant", response)
+        return {"session_id": session_id, "output": response}
     except ValueError as e:
-        return f"Error: {str(e)}"
+        return {"session_id": session_id, "output": f"Error: {str(e)}"}
     except subprocess.CalledProcessError as e:
-        # Include output for better debugging
         output = e.output if hasattr(e, 'output') else (e.stderr or "")
-        return f"Error executing codex command: {e}\nOutput: {output}"
+        return {"session_id": session_id, "output": f"Error executing codex command: {e}\nOutput: {output}"}
     except subprocess.TimeoutExpired as e:
-        return f"Error: Command timed out after {e.timeout} seconds"
-    except IndexError as e:
-        return "Error: No codex output blocks found (list index out of range)"
+        return {"session_id": session_id, "output": f"Error: Command timed out after {e.timeout} seconds"}
+    except IndexError:
+        return {"session_id": session_id, "output": "Error: No codex output blocks found (list index out of range)"}
     except Exception as e:
-        return f"Unexpected error: {str(e)}"
+        return {"session_id": session_id, "output": f"Unexpected error: {str(e)}"}
+
+
+@mcp.tool()
+async def codex_continue(
+    session_id: str,
+    message: str,
+    work_dir: str,
+    model: str = "",
+    timeout: Optional[float] = None,
+    ctx: Context = None,
+) -> Dict[str, str]:
+    """在指定会话里追加消息并获取响应（支持模型与超时）"""
+
+    history = session_manager.get(session_id)
+    history_text = "\n".join(m["content"] for m in history)
+    final_prompt = f"{history_text}\n{message}" if history_text else message
+
+    cmd = [
+        "codex", "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--cd", work_dir,
+    ]
+    if model:
+        if model in ALLOWED_MODELS:
+            cmd.extend(["--model", model])
+        else:
+            warn = (
+                f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
+                + "\n".join(f"- {m} — {desc}" for m, desc in ALLOWED_MODELS.items())
+            )
+            if ctx:
+                ctx.console.print(warn)
+            else:
+                print(warn)
+    cmd.append(final_prompt)
+
+    try:
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
+        if not blocks:
+            return {"session_id": session_id, "output": "Error: No codex output blocks found"}
+        response = blocks[-1]["raw"]
+        session_manager.append(session_id, "user", message)
+        session_manager.append(session_id, "assistant", response)
+        return {"session_id": session_id, "output": response}
+    except ValueError as e:
+        return {"session_id": session_id, "output": f"Error: {str(e)}"}
+    except subprocess.CalledProcessError as e:
+        output = e.output if hasattr(e, 'output') else (e.stderr or "")
+        return {"session_id": session_id, "output": f"Error executing codex command: {e}\nOutput: {output}"}
+    except subprocess.TimeoutExpired as e:
+        return {"session_id": session_id, "output": f"Error: Command timed out after {e.timeout} seconds"}
+    except IndexError:
+        return {"session_id": session_id, "output": "Error: No codex output blocks found (list index out of range)"}
+    except Exception as e:
+        return {"session_id": session_id, "output": f"Unexpected error: {str(e)}"}
+
+@mcp.tool()
+async def codex_review(
+    review_type: str,
+    work_dir: str,
+    target: str = "",
+    prompt: str = "",
+    model: str = "",
+    timeout: Optional[float] = None,
+    session_id: Optional[str] = None,
+    ctx: Context = None,
+) -> Dict[str, str]:
+    """使用预定义模板进行代码审查（支持会话、模型与超时），返回 {session_id, output}"""
+
+    if review_type not in REVIEW_PROMPTS:
+        raise ValueError(
+            f"Invalid review_type '{review_type}'. Must be one of: {list(REVIEW_PROMPTS.keys())}"
+        )
+
+    if not session_id:
+        session_id = session_manager.new_session()
+    history = session_manager.get(session_id)
+
+    template = REVIEW_PROMPTS[review_type]
+    custom_prompt_section = f"Additional instructions: {prompt}" if prompt else ""
+    user_prompt = template.format(
+        target=target if target else "current scope",
+        custom_prompt=f"\n{custom_prompt_section}" if custom_prompt_section else "",
+    )
+
+    history_text = "\n".join(m["content"] for m in history)
+    final_prompt = f"{history_text}\n{user_prompt}" if history_text else user_prompt
+
+    cmd = [
+        "codex", "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--cd", work_dir,
+    ]
+    if model:
+        if model in ALLOWED_MODELS:
+            cmd.extend(["--model", model])
+        else:
+            warn = (
+                f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
+                + "\n".join(f"- {m} — {desc}" for m, desc in ALLOWED_MODELS.items())
+            )
+            if ctx:
+                ctx.console.print(warn)
+            else:
+                print(warn)
+    cmd.append(final_prompt)
+
+    try:
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
+        if not blocks:
+            return {"session_id": session_id, "output": "Error: No codex output blocks found"}
+        response = blocks[-1]["raw"]
+        session_manager.append(session_id, "user", user_prompt)
+        session_manager.append(session_id, "assistant", response)
+        return {"session_id": session_id, "output": response}
+    except ValueError as e:
+        return {"session_id": session_id, "output": f"Error: {str(e)}"}
+    except subprocess.CalledProcessError as e:
+        output = e.output if hasattr(e, 'output') else (e.stderr or "")
+        return {"session_id": session_id, "output": f"Error executing codex command: {e}\nOutput: {output}"}
+    except subprocess.TimeoutExpired as e:
+        return {"session_id": session_id, "output": f"Error: Command timed out after {e.timeout} seconds"}
+    except IndexError:
+        return {"session_id": session_id, "output": "Error: No codex output blocks found (list index out of range)"}
+    except Exception as e:
+        return {"session_id": session_id, "output": f"Unexpected error: {str(e)}"}
 
 
 def main():

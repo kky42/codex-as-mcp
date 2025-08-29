@@ -90,13 +90,14 @@ Set `python_path` to the full path of a local interpreter (e.g., `F:\python310\p
 
 ## Tools
 
-The MCP server exposes two tools:
-- `codex_execute(prompt, work_dir, model?)` - General purpose codex execution
-- `codex_review(review_type, work_dir, target?, prompt?, model?)` - Specialized code review
+The MCP server exposes three tools:
+- `codex_execute(prompt, work_dir, model?, timeout?, session_id?)` - General purpose codex execution with optional session context
+- `codex_review(review_type, work_dir, target?, prompt?, model?, timeout?, session_id?)` - Specialized code review with session support
+- `codex_continue(session_id, message, work_dir, model?, timeout?)` - Append message within an existing session and get response
 
 ### Specify model
 
-Both tools 支持可选的 `model` 参数，用于选择 Codex 模型。当前暂时可选模型：
+All tools 支持可选的 `model` 参数，用于选择 Codex 模型。当前暂时可选模型：
 
 ```log
 ▌  1. gpt-5 minimal  — fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks
@@ -116,6 +117,16 @@ claude mcp call codex codex_review '{"review_type":"staged","work_dir":"/path","
 ```
 
 If you have any other use case requirements, feel free to open issue.
+
+## Session Management
+
+Each tool accepts an optional `session_id` to maintain conversation context.
+
+1. **Start**: Call `codex_execute` or `codex_review` without `session_id` to create a new session. The server returns the generated `session_id`.
+2. **Keep**: Pass the `session_id` on subsequent calls to continue the conversation.
+3. **Continue**: Use `codex_continue(session_id, message, work_dir, model?, timeout?)` to append follow-up messages within the same session.
+
+This allows the MCP server to provide conversational continuity with Codex.
 
 ## MCP Option
 

@@ -66,6 +66,22 @@ The MCP server exposes two tools:
 
 If you have any other use case requirements, feel free to open issue.
 
+## Review Prompt Configuration
+
+Default review templates are stored in `review_prompts.yaml` at the project root. You can edit this file or add new review scenarios:
+
+```yaml
+security: |
+  You are an expert code reviewer focusing on security aspects.
+  {custom_prompt}
+```
+
+Invoke it with:
+
+```python
+codex_review("security", work_dir, target)
+```
+
 ## Safety
 
 - **Safe Mode**: Default read-only operations protect your environment

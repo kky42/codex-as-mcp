@@ -4,6 +4,8 @@ import re
 import argparse
 import sys
 from typing import List, Dict, Optional, Sequence
+from pathlib import Path
+import yaml
 
 # Global safe mode setting
 SAFE_MODE = True
@@ -82,8 +84,8 @@ def run_and_extract_codex_blocks(
     return blocks[-last_n:]
 
 
-# Pre-defined review prompts for different scenarios
-REVIEW_PROMPTS = {
+# Default review prompts for different scenarios
+DEFAULT_REVIEW_PROMPTS = {
     "files": """You are an expert code reviewer. Please conduct a thorough code review of the specified files.
 
 Focus on:
@@ -173,6 +175,29 @@ Focus on:
 
 Please provide a comprehensive review with prioritized recommendations."""
 }
+
+
+def load_review_prompts() -> Dict[str, str]:
+    """Load review prompts from project root YAML file.
+
+    Returns:
+        dict: Review prompt templates.
+    """
+    config_path = Path(__file__).resolve().parents[2] / "review_prompts.yaml"
+    try:
+        with config_path.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+            if isinstance(data, dict):
+                return data
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+    return DEFAULT_REVIEW_PROMPTS
+
+
+# Loaded review prompts
+REVIEW_PROMPTS = load_review_prompts()
 
 
 @mcp.tool()

@@ -115,6 +115,21 @@ claude mcp call codex codex_review '{"review_type":"staged","work_dir":"/path","
 
 如有其他使用场景需求，欢迎提交 issue。
 
+## MCP 选项
+
+使用 `--mcp` 可以让 codex 自动连接 MCP 服务器：
+
+```bash
+codex run --mcp
+```
+
+或者在 Python 中：
+
+```python
+import subprocess
+subprocess.run(["codex", "run", "--mcp", "..."])
+```
+
 ## 自定义 Review 场景
 
 默认的 review 模板存放在项目根目录的 `review_prompts.yaml` 中。你可以修改此文件或新增场景，例如：

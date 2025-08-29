@@ -117,6 +117,21 @@ claude mcp call codex codex_review '{"review_type":"staged","work_dir":"/path","
 
 If you have any other use case requirements, feel free to open issue.
 
+## MCP Option
+
+Enable codex to automatically connect to an MCP server via `--mcp`:
+
+```bash
+codex run --mcp
+```
+
+Or in Python:
+
+```python
+import subprocess
+subprocess.run(["codex", "run", "--mcp", "..."])
+```
+
 ## Review Prompt Configuration
 
 Default review templates are stored in `review_prompts.yaml` at the project root. You can edit this file or add new review scenarios:
@@ -138,4 +153,4 @@ codex_review("security", work_dir, target)
 - **Safe Mode**: Default read-only operations protect your environment
 - **Writable Mode**: Use `--yolo` flag when you need full codex capabilities
 - **Sequential Execution**: Prevents conflicts from parallel agent operations
- - **Auto Approval**: `--auto-approve` skips all confirmation prompts. ⚠️ May execute destructive actions without warning.
+- **Auto Approval**: `--auto-approve` skips all confirmation prompts. ⚠️ May execute destructive actions without warning.

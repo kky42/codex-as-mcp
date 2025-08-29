@@ -47,6 +47,19 @@ codex --version
 }
 ```
 
+【可写模式并自动同意（危险）】
+```json
+{
+  "mcpServers": {
+    "codex": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["codex-as-mcp@latest", "--yolo", "--auto-approve"]
+    }
+  }
+}
+```
+
 或者使用 Claude Code 命令：
 ```bash
 # 安全模式（默认）
@@ -57,6 +70,9 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 
 # 自定义超时（默认 300 秒）
 claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --timeout 600
+
+# 可写模式并自动同意（危险）
+claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo --auto-approve
 ```
 
 ## 工具
@@ -108,5 +124,6 @@ codex_review("security", work_dir, target)
 
 - 安全模式：默认只读操作，保护你的环境
 - 可写模式：需要完整能力时使用 `--yolo` 标志
+- 自动同意：使用 `--auto-approve` 跳过所有确认。⚠️ 可能执行具有破坏性的操作，谨慎使用
 - 顺序执行：避免多代理并行操作产生冲突
 

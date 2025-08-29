@@ -49,6 +49,19 @@ Add to your `.mcp.json`:
 }
 ```
 
+**Writable Mode with Auto Approval (dangerous):**
+```json
+{
+  "mcpServers": {
+    "codex": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["codex-as-mcp@latest", "--yolo", "--auto-approve"]
+    }
+  }
+}
+```
+
 Or use Claude Code commands:
 ```bash
 # Safe mode (default)
@@ -59,6 +72,9 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 
 # Custom timeout (default 300s)
 claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --timeout 600
+
+# Writable mode with auto approve (dangerous)
+claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo --auto-approve
 ```
 
 ## Tools
@@ -110,4 +126,5 @@ codex_review("security", work_dir, target)
 
 - **Safe Mode**: Default read-only operations protect your environment
 - **Writable Mode**: Use `--yolo` flag when you need full codex capabilities
+- **Auto Approval**: `--auto-approve` skips all confirmation prompts. ⚠️ May execute destructive actions without warning.
 - **Sequential Execution**: Prevents conflicts from parallel agent operations

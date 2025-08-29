@@ -6,10 +6,12 @@ import sys
 from typing import List, Dict, Optional, Sequence
 from pathlib import Path
 import yaml
+import os
 
-# Global safe mode setting
+# Global settings
 SAFE_MODE = True
 DEFAULT_TIMEOUT = 300.0
+AUTO_APPROVE = False
 
 mcp = FastMCP("codex-as-mcp")
 
@@ -59,13 +61,31 @@ def run_and_extract_codex_blocks(
         if "--dangerously-bypass-approvals-and-sandbox" in final_cmd:
             idx = final_cmd.index("--dangerously-bypass-approvals-and-sandbox")
             final_cmd[idx:idx+1] = ["--sandbox", "read-only", "--ask-for-approval", "never"]
-    
+
+    # Attach auto approve flags when requested
+    if AUTO_APPROVE and "--ask-for-approval" not in final_cmd:
+        final_cmd.extend(["--ask-for-approval", "never"])
+
+    env = os.environ.copy()
+    if AUTO_APPROVE:
+        env.update(
+            {
+                # 常见外部工具的非交互模式设置
+                "GIT_TERMINAL_PROMPT": "0",
+                "GIT_ASKPASS": "true",
+                "DEBIAN_FRONTEND": "noninteractive",
+                "CI": "true",
+                "YES": "1",
+            }
+        )
+
     proc = subprocess.run(
         final_cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         check=False,
+        env=env,
         timeout=timeout if timeout is not None else DEFAULT_TIMEOUT,
     )
     out = proc.stdout
@@ -376,7 +396,7 @@ async def codex_review(
 
 def main():
     """Entry point for the MCP server"""
-    global SAFE_MODE, DEFAULT_TIMEOUT
+    global SAFE_MODE, DEFAULT_TIMEOUT, AUTO_APPROVE
     
     parser = argparse.ArgumentParser(
         prog="codex-as-mcp",
@@ -386,6 +406,11 @@ def main():
         "--yolo", 
         action="store_true",
         help="Enable writable mode (allows file modifications, git operations, etc.)"
+    )
+    parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help="Automatically approve all prompts (bypasses interactive confirmations)",
     )
     parser.add_argument(
         "--help-modes",
@@ -424,15 +449,19 @@ and conflicting system modifications. Sequential execution is safer.
 """)
         sys.exit(0)
     
-    # Set safe mode and timeout based on CLI args
+    # Set mode flags and timeout based on CLI args
     SAFE_MODE = not args.yolo
     DEFAULT_TIMEOUT = args.timeout
+    AUTO_APPROVE = args.auto_approve
 
     if SAFE_MODE:
         print("🔒 Running in SAFE mode (read-only). Use --yolo for writable mode.")
     else:
         print("⚡ Running in WRITABLE mode. Codex can modify files and system state.")
-    
+
+    if AUTO_APPROVE:
+        print("⚠️ AUTO-APPROVE enabled. All prompts will be auto-confirmed.")
+
     mcp.run()
 
 

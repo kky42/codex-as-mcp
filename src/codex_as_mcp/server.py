@@ -9,6 +9,7 @@ import yaml
 
 # Global safe mode setting
 SAFE_MODE = True
+DEFAULT_TIMEOUT = 300.0
 
 mcp = FastMCP("codex-as-mcp")
 
@@ -33,7 +34,8 @@ def run_and_extract_codex_blocks(
     cmd: Sequence[str],
     tags: Optional[Sequence[str]] = ("codex",),
     last_n: int = 1,
-    safe_mode: bool = True
+    safe_mode: bool = True,
+    timeout: Optional[float] = None,
 ) -> List[Dict[str, str]]:
     """
     运行命令并抽取日志块。每个块由形如
@@ -44,6 +46,8 @@ def run_and_extract_codex_blocks(
     :param cmd: 完整命令（列表形式）
     :param tags: 需要过滤的 tag 列表（大小写不敏感）。None 表示不过滤。
     :param last_n: 返回最后 N 个匹配块
+    :param safe_mode: 是否启用安全模式
+    :param timeout: 子进程超时时间（秒）
     :return: [{timestamp, tag, body, raw}] 按时间顺序（旧->新）
     :raises ValueError: 当没有找到匹配的日志块时
     :raises subprocess.CalledProcessError: 当命令执行失败时
@@ -57,7 +61,12 @@ def run_and_extract_codex_blocks(
             final_cmd[idx:idx+1] = ["--sandbox", "read-only", "--ask-for-approval", "never"]
     
     proc = subprocess.run(
-        final_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False
+        final_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+        timeout=timeout if timeout is not None else DEFAULT_TIMEOUT,
     )
     out = proc.stdout
     
@@ -209,24 +218,19 @@ ALLOWED_MODELS = {
 
 
 @mcp.tool()
-async def codex_execute(prompt: str, work_dir: str, model: str = "", ctx: Context = None) -> str:
+async def codex_execute(prompt: str, work_dir: str, model: str = "", timeout: Optional[float] = None, ctx: Context = None) -> str:
     """
-    通用 Codex 执行工具，可选指定模型。
+    通用 Codex 执行工具，支持指定模型与超时。
 
-    当前暂时可选模型：
-    1. gpt-5 minimal  — fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks
-    2. gpt-5 low      — balances speed with some reasoning; useful for straightforward queries and short explanations
-    3. gpt-5 medium   — default setting; provides a solid balance of reasoning depth and latency for general-purpose tasks
-    4. gpt-5 high     — maximizes reasoning depth for complex or ambiguous problems
-
-    Args:
-        prompt (str): Codex 的提示词
-        work_dir (str): 工作目录，例如 /Users/kevin/Projects/demo_project
-        model (str, optional): 指定 Codex 模型，不填或传入其他值将使用默认模型
-        ctx (Context, optional): MCP 上下文日志
+    参数:
+        - prompt (str): Codex 提示词
+        - work_dir (str): 工作目录（例如 /Users/kevin/Projects/demo_project）
+        - model (str, 可选): 指定 Codex 模型；未提供或不在允许列表则使用默认模型
+        - timeout (float, 可选): codex 命令超时时间（秒）
+        - ctx (Context, 可选): MCP 上下文（用于日志输出）
 
     示例:
-        codex_execute("print('hello')", "/path/to/project", model="gpt-5 high")
+        codex_execute("print('hello')", "/path/to/project", model="gpt-5 high", timeout=120)
     """
     cmd = [
         "codex", "exec",
@@ -248,7 +252,7 @@ async def codex_execute(prompt: str, work_dir: str, model: str = "", ctx: Contex
     cmd.append(prompt)
     
     try:
-        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
         # Defensive check for empty blocks
         if not blocks:
             return "Error: No codex output blocks found"
@@ -259,6 +263,8 @@ async def codex_execute(prompt: str, work_dir: str, model: str = "", ctx: Contex
         # Include output for better debugging
         output = e.output if hasattr(e, 'output') else (e.stderr or "")
         return f"Error executing codex command: {e}\nOutput: {output}"
+    except subprocess.TimeoutExpired as e:
+        return f"Error: Command timed out after {e.timeout} seconds"
     except IndexError as e:
         return "Error: No codex output blocks found (list index out of range)"
     except Exception as e:
@@ -272,89 +278,49 @@ async def codex_review(
     target: str = "",
     prompt: str = "",
     model: str = "",
+    timeout: Optional[float] = None,
     ctx: Context = None,
 ) -> str:
     """
-    基于预设模板执行 Codex 代码审查，可选指定模型。
+    基于预设模板执行 Codex 代码审查，支持指定模型与超时。
 
-    当前暂时可选模型：
-    1. gpt-5 minimal  — fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks
-    2. gpt-5 low      — balances speed with some reasoning; useful for straightforward queries and short explanations
-    3. gpt-5 medium   — default setting; provides a solid balance of reasoning depth and latency for general-purpose tasks
-    4. gpt-5 high     — maximizes reasoning depth for complex or ambiguous problems
+    该工具针对多种开发场景提供专业化的代码审查能力，
+    将预设的审查模板与自定义说明组合使用以获得更高质量的审查结果。
 
-    This tool provides specialized code review capabilities for various development scenarios,
-    combining pre-defined review templates with custom instructions.
+    参数:
+        - review_type (str): 审查类型，必须是以下之一：
+            - "files": 审查指定文件的代码质量、缺陷与最佳实践
+                         目标：逗号分隔的文件路径（例如 "src/main.py,src/utils.py"）
+            - "staged": 审查已暂存更改（git diff --cached），评估是否可提交
+                         目标：不需要（自动检测）
+            - "unstaged": 审查未暂存更改（git diff），发现未完成实现等问题
+                         目标：不需要（自动检测）
+            - "changes": 审查指定提交范围的变更
+                         目标：Git 提交范围（例如 "HEAD~3..HEAD"）
+            - "pr": 审查指定拉取请求的整体变更
+                         目标：PR 编号或标识（例如 "123"）
+            - "general": 通用代码库审查（架构与质量）
+                         目标：可选的目录范围，或留空以覆盖全仓库
 
-    Args:
-        review_type (str): Type of code review to perform. Must be one of:
-            - "files": Review specific files for code quality, bugs, and best practices
-                       Target: comma-separated file paths (e.g., "src/main.py,src/utils.py")
-                       Example: review_type="files", target="src/auth.py,src/db.py"
-            
-            - "staged": Review staged changes (git diff --cached) ready for commit
-                       Target: not needed (automatically detects staged changes)
-                       Example: review_type="staged"
-            
-            - "unstaged": Review unstaged changes (git diff) in working directory
-                         Target: not needed (automatically detects unstaged changes)
-                         Example: review_type="unstaged"
-            
-            - "changes": Review specific commit range or git changes
-                        Target: git commit range (e.g., "HEAD~3..HEAD", "main..feature-branch")
-                        Example: review_type="changes", target="HEAD~2..HEAD"
-            
-            - "pr": Review pull request changes comprehensively
-                   Target: pull request number or identifier
-                   Example: review_type="pr", target="123"
-            
-            - "general": General codebase review for architecture and quality
-                        Target: optional, can specify scope or leave empty for full codebase
-                        Example: review_type="general", target="src/"
+        - work_dir (str): 工作目录路径（例如 "/Users/kevin/Projects/demo_project"）
+        - target (str, 可选): 随审查类型变化的目标参数；见上述说明
+        - prompt (str, 可选): 追加到审查模板的自定义说明（关注点/上下文）
+        - model (str, 可选): 指定 Codex 模型；未提供或不在允许列表则使用默认模型
+        - timeout (float, 可选): codex 命令超时时间（秒）
+        - ctx (Context, 可选): MCP 上下文（用于日志输出）
 
-        work_dir (str): The working directory path (e.g., "/Users/kevin/Projects/demo_project")
-        
-        target (str, optional): Target specification based on review_type:
-            - For "files": comma-separated file paths
-            - For "staged"/"unstaged": not needed (leave empty)
-            - For "changes": git commit range (commit1..commit2)
-            - For "pr": pull request number/identifier
-            - For "general": optional scope (directory path or leave empty)
-        
-        prompt (str, optional): Additional custom instructions to append to the review prompt.
-                               Use this to specify particular aspects to focus on or additional context.
-                               Example: "Focus on security vulnerabilities and performance"
+    返回:
+        - str: 来自 Codex 的详细代码审查结果
 
-        model (str, optional): 指定 Codex 模型，不填或传入其他值将使用默认模型
-        ctx (Context, optional): MCP context for logging
+    示例:
+        # 审查指定文件并关注安全问题
+        codex_review("files", "/path/to/project", "src/auth.py,src/api.py", "关注安全漏洞", model="gpt-5 high")
 
-    Returns:
-        str: Detailed code review results from codex
-
-    Examples:
-        # Review specific files with security focus
-        codex_review(
-            "files",
-            "/path/to/project",
-            "src/auth.py,src/api.py",
-            "Focus on security vulnerabilities",
-            model="gpt-5 high",
-        )
-
-        # Review staged changes before commit using specific model
+        # 提交前审查已暂存更改
         codex_review("staged", "/path/to/project", model="gpt-5 low")
-        
-        # Review unstaged work-in-progress changes
-        codex_review("unstaged", "/path/to/project", "", "Check for incomplete implementations")
-        
-        # Review recent commits
-        codex_review("changes", "/path/to/project", "HEAD~3..HEAD", "Look for performance regressions")
-        
-        # Review pull request
-        codex_review("pr", "/path/to/project", "456", "Focus on test coverage")
-        
-        # General codebase review
-        codex_review("general", "/path/to/project", "src/", "Identify technical debt")
+
+        # 审查最近提交范围
+        codex_review("changes", "/path/to/project", "HEAD~3..HEAD", "关注性能回退")
     """
     if review_type not in REVIEW_PROMPTS:
         raise ValueError(f"Invalid review_type '{review_type}'. Must be one of: {list(REVIEW_PROMPTS.keys())}")
@@ -389,7 +355,7 @@ async def codex_review(
     cmd.append(final_prompt)
     
     try:
-        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE)
+        blocks = run_and_extract_codex_blocks(cmd, safe_mode=SAFE_MODE, timeout=timeout)
         # Defensive check for empty blocks
         if not blocks:
             return "Error: No codex output blocks found"
@@ -400,6 +366,8 @@ async def codex_review(
         # Include output for better debugging
         output = e.output if hasattr(e, 'output') else (e.stderr or "")
         return f"Error executing codex command: {e}\nOutput: {output}"
+    except subprocess.TimeoutExpired as e:
+        return f"Error: Command timed out after {e.timeout} seconds"
     except IndexError as e:
         return "Error: No codex output blocks found (list index out of range)"
     except Exception as e:
@@ -408,7 +376,7 @@ async def codex_review(
 
 def main():
     """Entry point for the MCP server"""
-    global SAFE_MODE
+    global SAFE_MODE, DEFAULT_TIMEOUT
     
     parser = argparse.ArgumentParser(
         prog="codex-as-mcp",
@@ -421,10 +389,16 @@ def main():
     )
     parser.add_argument(
         "--help-modes",
-        action="store_true", 
+        action="store_true",
         help="Show detailed explanation of safe vs writable modes"
     )
-    
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=300.0,
+        help="Timeout in seconds for codex commands"
+    )
+
     args = parser.parse_args()
     
     if args.help_modes:
@@ -450,9 +424,10 @@ and conflicting system modifications. Sequential execution is safer.
 """)
         sys.exit(0)
     
-    # Set safe mode based on --yolo flag
+    # Set safe mode and timeout based on CLI args
     SAFE_MODE = not args.yolo
-    
+    DEFAULT_TIMEOUT = args.timeout
+
     if SAFE_MODE:
         print("🔒 Running in SAFE mode (read-only). Use --yolo for writable mode.")
     else:

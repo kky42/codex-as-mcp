@@ -54,6 +54,9 @@ claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest
 
 # 可写模式
 claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
+
+# 自定义超时（默认 300 秒）
+claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --timeout 600
 ```
 
 ## 工具

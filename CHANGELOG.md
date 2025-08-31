@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI now supports `--mcp` and `--no-mcp` options. When `--mcp` is used, the tool will start an MCP server automatically or connect using `~/.codex/mcp.json`.
 - Documentation includes usage examples such as `codex run --mcp` and Python `subprocess.run` snippets.
 
+### Changed
+- Removed incompatible `--ask-for-approval` flag usage; safe mode is enforced via `--sandbox read-only` transformation in subprocess wrapper.
+- Added `--skip-git-repo-check` to all codex command invocations (`codex_execute`, `codex_continue`, `codex_review`) to bypass trust checks in temporary directories.
+- Introduced `MODEL_ALIASES` to map internal variants (`gpt-5 minimal/low/medium/high`) to canonical `gpt-5`; added `gpt-5` to `ALLOWED_MODELS` for real codex compatibility.
+- Hardened log parsing: if no blocks match the expected tag, fall back to accepting any tag to remain compatible with different codex output formats.
+- `--auto-approve` now implies WRITABLE mode (overrides SAFE mode); CLI help and startup messages updated accordingly.
+
 ## [0.1.16] - 2025-08-28
 
 ### 🛠️ Fixed

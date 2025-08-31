@@ -65,11 +65,11 @@ def run_and_extract_codex_blocks(
         # Replace --dangerously-bypass-approvals-and-sandbox with read-only mode
         if "--dangerously-bypass-approvals-and-sandbox" in final_cmd:
             idx = final_cmd.index("--dangerously-bypass-approvals-and-sandbox")
-            final_cmd[idx:idx+1] = ["--sandbox", "read-only", "--ask-for-approval", "never"]
+            # 一些 codex 版本不支持 --ask-for-approval，此处仅保留只读沙箱
+            final_cmd[idx:idx+1] = ["--sandbox", "read-only"]
 
-    # Attach auto approve flags when requested
-    if AUTO_APPROVE and "--ask-for-approval" not in final_cmd:
-        final_cmd.extend(["--ask-for-approval", "never"])
+    # 不再强制注入 --ask-for-approval，部分 codex 版本不支持。
+    # AUTO_APPROVE 通过环境变量（如 GIT_TERMINAL_PROMPT 等）降低交互需求。
 
     env = os.environ.copy()
     if AUTO_APPROVE:
@@ -105,6 +105,13 @@ def run_and_extract_codex_blocks(
     for m in BLOCK_RE.finditer(out):
         ts, tag, body = m.group(1), m.group(2).strip(), m.group(3)
         if tags is None or tag.lower() in {t.lower() for t in tags}:
+            raw = f'[{ts}] {tag}\n{body}'
+            blocks.append({"timestamp": ts, "tag": tag, "body": body, "raw": raw})
+
+    if not blocks:
+        # 回退：不再过滤 tag，接受任意块，取最后一个
+        for m in BLOCK_RE.finditer(out):
+            ts, tag, body = m.group(1), m.group(2).strip(), m.group(3)
             raw = f'[{ts}] {tag}\n{body}'
             blocks.append({"timestamp": ts, "tag": tag, "body": body, "raw": raw})
 
@@ -219,8 +226,9 @@ def load_review_prompts() -> Dict[str, str]:
     config_path = Path(__file__).resolve().parents[2] / "review_prompts.yaml"
     try:
         with config_path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-            if isinstance(data, dict):
+            data = yaml.safe_load(f)
+            # 当 YAML 文件为空、为 None 或解析为非 dict/空 dict 时，回退默认模板
+            if isinstance(data, dict) and data:
                 return data
     except FileNotFoundError:
         pass
@@ -234,10 +242,20 @@ REVIEW_PROMPTS = load_review_prompts()
 
 # Temporary gpt-5 model options
 ALLOWED_MODELS = {
+    "gpt-5": "default model for real codex on this environment",
     "gpt-5 minimal": "fastest responses with limited reasoning; ideal for coding, instructions, or lightweight tasks",
     "gpt-5 low": "balances speed with some reasoning; useful for straightforward queries and short explanations",
     "gpt-5 medium": "default setting; provides a solid balance of reasoning depth and latency for general-purpose tasks",
     "gpt-5 high": "maximizes reasoning depth for complex or ambiguous problems",
+}
+
+# 将内部抽象的 gpt-5 * 档位映射为真实 codex 支持的参数
+MODEL_ALIASES = {
+    "gpt-5": "gpt-5",
+    "gpt-5 minimal": "gpt-5",
+    "gpt-5 low": "gpt-5",
+    "gpt-5 medium": "gpt-5",
+    "gpt-5 high": "gpt-5",
 }
 
 
@@ -262,10 +280,12 @@ async def codex_execute(
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
+        "--skip-git-repo-check",
     ]
     if model:
         if model in ALLOWED_MODELS:
-            cmd.extend(["--model", model])
+            canonical = MODEL_ALIASES.get(model, model)
+            cmd.extend(["--model", canonical])
         else:
             warn = (
                 f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
@@ -317,10 +337,12 @@ async def codex_continue(
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
+        "--skip-git-repo-check",
     ]
     if model:
         if model in ALLOWED_MODELS:
-            cmd.extend(["--model", model])
+            canonical = MODEL_ALIASES.get(model, model)
+            cmd.extend(["--model", canonical])
         else:
             warn = (
                 f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
@@ -388,10 +410,12 @@ async def codex_review(
         "codex", "exec",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
+        "--skip-git-repo-check",
     ]
     if model:
         if model in ALLOWED_MODELS:
-            cmd.extend(["--model", model])
+            canonical = MODEL_ALIASES.get(model, model)
+            cmd.extend(["--model", canonical])
         else:
             warn = (
                 f"模型 '{model}' 暂不支持，将使用 Codex 默认模型。\n当前可选模型：\n"
@@ -440,7 +464,7 @@ def main():
     parser.add_argument(
         "--auto-approve",
         action="store_true",
-        help="Automatically approve all prompts (bypasses interactive confirmations)",
+        help="Automatically approve all prompts (bypasses interactive confirmations). Implies WRITABLE mode.",
     )
     parser.add_argument(
         "--help-modes",
@@ -480,9 +504,12 @@ and conflicting system modifications. Sequential execution is safer.
         sys.exit(0)
     
     # Set mode flags and timeout based on CLI args
-    SAFE_MODE = not args.yolo
     DEFAULT_TIMEOUT = args.timeout
     AUTO_APPROVE = args.auto_approve
+    SAFE_MODE = not args.yolo
+    # 当启用 --auto-approve 时，强制进入可写模式（覆盖 --yolo 缺省）
+    if AUTO_APPROVE:
+        SAFE_MODE = False
 
     if SAFE_MODE:
         print("🔒 Running in SAFE mode (read-only). Use --yolo for writable mode.")
@@ -490,7 +517,7 @@ and conflicting system modifications. Sequential execution is safer.
         print("⚡ Running in WRITABLE mode. Codex can modify files and system state.")
 
     if AUTO_APPROVE:
-        print("⚠️ AUTO-APPROVE enabled. All prompts will be auto-confirmed.")
+        print("⚠️ AUTO-APPROVE enabled. All prompts will be auto-confirmed (implies WRITABLE mode).")
 
     mcp.run()
 

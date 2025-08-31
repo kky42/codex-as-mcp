@@ -12,8 +12,19 @@ from .session_manager import SessionManager
 
 # Global settings
 SAFE_MODE = True
-DEFAULT_TIMEOUT = 300.0
+DEFAULT_TIMEOUT = 600.0
 AUTO_APPROVE = False
+
+# 系统安全前缀（默认注入到所有 prompt 的最前面，可通过环境变量 CODEX_MCP_SYSTEM_PROMPT 覆盖）
+DEFAULT_SAFETY_PROMPT = (
+    """
+系统限制（强制）：
+- 严禁执行进程/服务启动、端口监听、后台常驻、长时间任务（>60s）等可能导致卡死的操作。
+- 所有 Shell 命令应以演示为主，必要时使用 --dry-run 或等效只读参数。
+- 如果任务预计超时或产生大量输出，先给出计划与最小化方案并征求确认。
+"""
+    .strip()
+)
 
 mcp = FastMCP("codex-as-mcp")
 
@@ -274,7 +285,11 @@ async def codex_execute(
         session_id = session_manager.new_session()
     history = session_manager.get(session_id)
     history_text = "\n".join(m["content"] for m in history)
-    final_prompt = f"{history_text}\n{prompt}" if history_text else prompt
+    safety_prefix = os.environ.get("CODEX_MCP_SYSTEM_PROMPT", DEFAULT_SAFETY_PROMPT).strip()
+    prefix = f"{safety_prefix}\n" if safety_prefix else ""
+    final_prompt = (
+        f"{prefix}{history_text}\n{prompt}" if history_text else f"{prefix}{prompt}"
+    )
 
     cmd = [
         "codex", "exec",
@@ -331,7 +346,11 @@ async def codex_continue(
 
     history = session_manager.get(session_id)
     history_text = "\n".join(m["content"] for m in history)
-    final_prompt = f"{history_text}\n{message}" if history_text else message
+    safety_prefix = os.environ.get("CODEX_MCP_SYSTEM_PROMPT", DEFAULT_SAFETY_PROMPT).strip()
+    prefix = f"{safety_prefix}\n" if safety_prefix else ""
+    final_prompt = (
+        f"{prefix}{history_text}\n{message}" if history_text else f"{prefix}{message}"
+    )
 
     cmd = [
         "codex", "exec",
@@ -404,7 +423,11 @@ async def codex_review(
     )
 
     history_text = "\n".join(m["content"] for m in history)
-    final_prompt = f"{history_text}\n{user_prompt}" if history_text else user_prompt
+    safety_prefix = os.environ.get("CODEX_MCP_SYSTEM_PROMPT", DEFAULT_SAFETY_PROMPT).strip()
+    prefix = f"{safety_prefix}\n" if safety_prefix else ""
+    final_prompt = (
+        f"{prefix}{history_text}\n{user_prompt}" if history_text else f"{prefix}{user_prompt}"
+    )
 
     cmd = [
         "codex", "exec",

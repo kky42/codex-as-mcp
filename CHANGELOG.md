@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2025.9.4] - 2025-09-03
+
+### 🛠️ Fixed
+- **Windows Compatibility**: Fixed `[WinError 2] 系统找不到指定的文件` (system cannot find file) error on Windows
+- Added cross-platform executable resolution using `shutil.which()` 
+- Enhanced error handling with `FileNotFoundError` catching in both `codex_execute` and `codex_review`
+- Improved error messages with Windows-specific guidance and installation instructions
+
+### 🔧 Changed  
+- Added platform detection to provide Windows-specific error messages
+- Enhanced subprocess command resolution for cross-platform compatibility
+- Updated error handling to guide Windows users to proper installation steps or WSL usage
+
+### 📚 Documentation
+- Windows users now receive helpful error messages about experimental support
+- Added guidance for npm installation and PATH configuration
+- Included WSL recommendation for better Windows compatibility
+
 ## [0.1.16] - 2025-08-28
 
 ### 🛠️ Fixed

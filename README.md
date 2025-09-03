@@ -18,7 +18,7 @@ codex login
 codex --version
 ```
 
-> **Important**: This MCP server uses `--sandbox` and `--ask-for-approval` flags that require Codex CLI v0.25.0 or later. Earlier versions are not supported.
+> **Important**: This MCP server uses `--sandbox` flag that requires Codex CLI v0.25.0 or later. Earlier versions are not supported.
 
 ### 2. Configure MCP
 
@@ -71,3 +71,8 @@ If you have any other use case requirements, feel free to open issue.
 - **Safe Mode**: Default read-only operations protect your environment
 - **Writable Mode**: Use `--yolo` flag when you need full codex capabilities
 - **Sequential Execution**: Prevents conflicts from parallel agent operations
+
+## Local test
+```shell
+uv run mcp dev src/codex_as_mcp/server.py
+```

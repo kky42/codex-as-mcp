@@ -16,7 +16,7 @@ codex login
 codex --version
 ```
 
-> **重要**: 此 MCP 服务器使用需要 Codex CLI v0.25.0 或更高版本的 `--sandbox` 和 `--ask-for-approval` 标志。不支持早期版本。
+> **重要**: 此 MCP 服务器使用需要 Codex CLI v0.25.0 或更高版本的 `--sandbox` 标志。不支持早期版本。
 
 ### 2. 配置 MCP
 

@@ -3,6 +3,8 @@ import subprocess
 import re
 import argparse
 import sys
+import shutil
+import platform
 from typing import List, Dict, Optional, Sequence
 
 # Global safe mode setting
@@ -46,8 +48,27 @@ def run_and_extract_codex_blocks(
     :raises ValueError: 当没有找到匹配的日志块时
     :raises subprocess.CalledProcessError: 当命令执行失败时
     """
-    # Modify command based on safe mode
+    # Resolve executable path for cross-platform compatibility
     final_cmd = list(cmd)
+    if final_cmd and final_cmd[0] == "codex":
+        codex_executable = shutil.which("codex")
+        if not codex_executable:
+            # Provide helpful error message for Windows users
+            is_windows = platform.system().lower() == "windows"
+            error_msg = "Codex CLI not found in PATH. "
+            if is_windows:
+                error_msg += (
+                    "Windows support is experimental. Please:\n"
+                    "1. Ensure Codex CLI is installed: npm install -g @openai/codex\n"
+                    "2. Add the npm global bin directory to PATH\n"
+                    "3. Or consider using WSL for better compatibility"
+                )
+            else:
+                error_msg += "Please install Codex CLI: npm install -g @openai/codex"
+            raise FileNotFoundError(error_msg)
+        final_cmd[0] = codex_executable
+    
+    # Modify command based on safe mode
     if safe_mode:
         # Replace --dangerously-bypass-approvals-and-sandbox with read-only mode
         if "--dangerously-bypass-approvals-and-sandbox" in final_cmd:
@@ -187,6 +208,7 @@ async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
     """
     cmd = [
         "codex", "exec",
+        "--skip-git-repo-check",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
         prompt,
@@ -198,6 +220,8 @@ async def codex_execute(prompt: str, work_dir: str, ctx: Context) -> str:
         if not blocks:
             return "Error: No codex output blocks found"
         return blocks[-1]["raw"]
+    except FileNotFoundError as e:
+        return f"Error: {str(e)}"
     except ValueError as e:
         return f"Error: {str(e)}"
     except subprocess.CalledProcessError as e:
@@ -296,6 +320,7 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
     
     cmd = [
         "codex", "exec",
+        "--skip-git-repo-check",
         "--dangerously-bypass-approvals-and-sandbox",
         "--cd", work_dir,
         final_prompt,
@@ -307,6 +332,8 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
         if not blocks:
             return "Error: No codex output blocks found"
         return blocks[-1]["raw"]
+    except FileNotFoundError as e:
+        return f"Error: {str(e)}"
     except ValueError as e:
         return f"Error: {str(e)}"
     except subprocess.CalledProcessError as e:

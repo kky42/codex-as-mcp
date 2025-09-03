@@ -1,9 +1,8 @@
 {
   "mcpServers": {
-    "codex": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["codex-as-mcp@latest", "--yolo"]
+    "local-codex-as-mcp": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "codex_as_mcp"]
     }
   }
 }

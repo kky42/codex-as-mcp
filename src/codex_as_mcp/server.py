@@ -52,7 +52,7 @@ def run_and_extract_codex_blocks(
         # Replace --dangerously-bypass-approvals-and-sandbox with read-only mode
         if "--dangerously-bypass-approvals-and-sandbox" in final_cmd:
             idx = final_cmd.index("--dangerously-bypass-approvals-and-sandbox")
-            final_cmd[idx:idx+1] = ["--sandbox", "read-only", "--ask-for-approval", "never"]
+            final_cmd[idx:idx+1] = ["--sandbox", "read-only"]
     
     proc = subprocess.run(
         final_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False

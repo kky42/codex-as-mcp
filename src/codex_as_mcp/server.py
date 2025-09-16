@@ -371,13 +371,13 @@ def main():
         print("""
 Codex-as-MCP Execution Modes:
 
-🔒 Safe Mode (default):
+[SAFE] Safe Mode (default):
   - Read-only operations only
   - No file modifications
   - No git operations  
   - Safe for exploration and analysis
   
-⚡ Writable Mode (--yolo):
+[WRITABLE] Writable Mode (--yolo):
   - Full codex agent capabilities
   - Can modify files, run git commands
   - Sequential execution prevents conflicts
@@ -394,9 +394,9 @@ and conflicting system modifications. Sequential execution is safer.
     SAFE_MODE = not args.yolo
     
     if SAFE_MODE:
-        print("🔒 Running in SAFE mode (read-only). Use --yolo for writable mode.")
+        print("[SAFE] Running in SAFE mode (read-only). Use --yolo for writable mode.")
     else:
-        print("⚡ Running in WRITABLE mode. Codex can modify files and system state.")
+        print("[WRITABLE] Running in WRITABLE mode. Codex can modify files and system state.")
     
     mcp.run()
 

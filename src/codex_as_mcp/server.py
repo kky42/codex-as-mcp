@@ -349,10 +349,22 @@ async def codex_review(review_type: str, work_dir: str, target: str = "", prompt
 def main():
     """Entry point for the MCP server"""
     global SAFE_MODE
-    
+
+    # Get version from package metadata
+    try:
+        import importlib.metadata
+        version = importlib.metadata.version("codex-as-mcp")
+    except Exception:
+        version = "unknown"
+
     parser = argparse.ArgumentParser(
         prog="codex-as-mcp",
-        description="MCP server that provides codex agent tools"
+        description=f"MCP server that provides codex agent tools (version {version})"
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {version}"
     )
     parser.add_argument(
         "--yolo", 

@@ -28,7 +28,7 @@ from mcp.server.fastmcp import FastMCP, Context
 DEFAULT_TIMEOUT_SECONDS: int = 8 * 60 * 60  # 8 hours
 
 
-mcp = FastMCP("codex-as-mcp-v2")
+mcp = FastMCP("codex-subagent")
 
 
 def _resolve_codex_executable() -> str:

@@ -2,28 +2,27 @@
 
 [中文版](./README.zh-CN.md)
 
-Enable Claude Code, Cursor and other AI tools to call Codex for task execution. Plus/Pro/Team subscribers can maximize GPT-5 usage without additional costs.
+**MCP server for delegating tasks to Codex CLI subagents.**
+
+Spawn autonomous Codex agents from Claude Desktop, Cursor, or any MCP-compatible AI tool. Each subagent runs `codex e --full-auto` with complete autonomy in a specified directory. Perfect for Plus/Pro/Team subscribers leveraging GPT-5 capabilities.
 
 ## Setup
 
 ### 1. Install Codex CLI
 
-**⚠️ Requires Codex CLI version >= 0.25.0**
+**⚠️ Requires Codex CLI >= 0.46.0**
 
 ```bash
 npm install -g @openai/codex@latest
 codex login
 
-# Verify version
+# Verify installation
 codex --version
 ```
-
-> **Important**: This MCP server uses `--sandbox` flag that requires Codex CLI v0.25.0 or later. Earlier versions are not supported.
 
 ### 2. Configure MCP
 
 Add to your `.mcp.json`:
-**Safe Mode (Default):**
 ```json
 {
   "mcpServers": {
@@ -36,41 +35,18 @@ Add to your `.mcp.json`:
 }
 ```
 
-**Writable Mode:**
-```json
-{
-  "mcpServers": {
-    "codex": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["codex-as-mcp@latest", "--yolo"]
-    }
-  }
-}
-```
-
-Or use Claude Code commands:
+Or use Claude Desktop commands:
 ```bash
-# Safe mode (default)
 claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest
-
-# Writable mode
-claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest --yolo
 ```
 
-## Tools
+## Tool
 
-The MCP server exposes two tools:
-- `codex_execute(prompt, work_dir)` - General purpose codex execution
-- `codex_review(review_type, work_dir, target?, prompt?)` - Specialized code review
+- `spawn_agent(prompt, work_directory)` - Spawns an autonomous Codex subagent in the specified directory
 
-If you have any other use case requirements, feel free to open issue.
+## How It Works
 
-## Safety
-
-- **Safe Mode**: Default read-only operations protect your environment
-- **Writable Mode**: Use `--yolo` flag when you need full codex capabilities
-- **Sequential Execution**: Prevents conflicts from parallel agent operations
+The MCP server spawns Codex CLI subagents using `codex e --full-auto`, providing complete task autonomy. Each subagent receives your prompt and executes independently within the specified directory.
 
 ## Local test
 ```shell

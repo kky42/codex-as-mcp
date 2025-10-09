@@ -1,7 +1,7 @@
 [project]
 name = "codex-as-mcp"
-version = "2025.9.16.1"
-description = "MCP server that provides access to codex CLI for code generation and review"
+version = "2025.10.9.1"
+description = "MCP server for delegating tasks to Codex CLI subagents"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [

@@ -147,7 +147,7 @@ wheels = [
 
 [[package]]
 name = "codex-as-mcp"
-version = "2025.10.9.2"
+version = "2025.10.9.3"
 source = { editable = "." }
 dependencies = [
     { name = "mcp", extra = ["cli"] },

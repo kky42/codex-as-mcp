@@ -2,15 +2,15 @@
 
 [中文版](./README.zh-CN.md)
 
-**MCP server for delegating tasks to Codex CLI subagents.**
+**Spawn multiple subagents via Codex-as-MCP**
 
-Spawn autonomous Codex agents from Claude Desktop, Cursor, or any MCP-compatible AI tool. Each subagent runs `codex e --full-auto` with complete autonomy in a specified directory. Perfect for Plus/Pro/Team subscribers leveraging GPT-5 capabilities.
+Each subagent runs `codex e --full-auto` with complete autonomy in a specified directory. Perfect for Plus/Pro/Team subscribers leveraging GPT-5 capabilities.
 
 ## Setup
 
 ### 1. Install Codex CLI
 
-**⚠️ Requires Codex CLI >= 0.46.0**
+**Requires Codex CLI >= 0.46.0**
 
 ```bash
 npm install -g @openai/codex@latest
@@ -44,12 +44,3 @@ claude mcp add codex-subagent -- uvx codex-as-mcp@latest
 
 - `spawn_agent(prompt, work_directory)` - Spawns an autonomous Codex subagent in the specified directory
 - `spawn_agents_parallel(agents)` - Spawns multiple Codex subagents in parallel. Takes a list of agent specs with `prompt` and `work_directory` fields
-
-## How It Works
-
-The MCP server spawns Codex CLI subagents using `codex e --full-auto`, providing complete task autonomy. Each subagent receives your prompt and executes independently within the specified directory.
-
-## Local test
-```shell
-uv run mcp dev src/codex_as_mcp/server.py
-```

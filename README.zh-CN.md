@@ -24,7 +24,7 @@ codex --version
 ```json
 {
   "mcpServers": {
-    "codex": {
+    "codex-subagent": {
       "type": "stdio",
       "command": "uvx",
       "args": ["codex-as-mcp@latest"]
@@ -35,7 +35,7 @@ codex --version
 
 或者使用 Claude Desktop 命令：
 ```bash
-claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest
+claude mcp add codex-subagent -- uvx codex-as-mcp@latest
 ```
 
 ## 工具

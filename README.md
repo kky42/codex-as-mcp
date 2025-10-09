@@ -26,7 +26,7 @@ Add to your `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "codex": {
+    "codex-subagent": {
       "type": "stdio",
       "command": "uvx",
       "args": ["codex-as-mcp@latest"]
@@ -37,7 +37,7 @@ Add to your `.mcp.json`:
 
 Or use Claude Desktop commands:
 ```bash
-claude mcp add codex-as-mcp -- uvx codex-as-mcp@latest
+claude mcp add codex-subagent -- uvx codex-as-mcp@latest
 ```
 
 ## Tool

@@ -155,6 +155,79 @@ async def spawn_agent(ctx: Context, prompt: str, work_directory: str) -> str:
             pass
 
 
+@mcp.tool()
+async def spawn_agents_parallel(
+    ctx: Context,
+    agents: list[dict[str, str]]
+) -> list[dict[str, str]]:
+    """Spawn multiple Codex agents in parallel.
+
+    Args:
+        agents: List of agent specs, each with 'prompt' and 'work_directory'.
+                Example: [
+                    {"prompt": "Create math.md", "work_directory": "/path/to/dir"},
+                    {"prompt": "Create story.md", "work_directory": "/path/to/dir"}
+                ]
+
+    Returns:
+        List of results with 'index', 'output', and optional 'error' fields.
+    """
+    if not isinstance(agents, list):
+        return [{"index": "0", "error": "Error: 'agents' must be a list of agent specs"}]
+
+    if not agents:
+        return [{"index": "0", "error": "Error: 'agents' list cannot be empty"}]
+
+    async def run_one(index: int, spec: dict) -> dict:
+        """Run a single agent and return result with index."""
+        try:
+            # Validate spec
+            if not isinstance(spec, dict):
+                return {
+                    "index": str(index),
+                    "error": f"Agent {index}: spec must be a dictionary with 'prompt' and 'work_directory'"
+                }
+
+            prompt = spec.get("prompt", "")
+            work_directory = spec.get("work_directory", "")
+
+            # Report progress for this agent
+            try:
+                await ctx.report_progress(
+                    index,
+                    len(agents),
+                    f"Starting agent {index + 1}/{len(agents)}..."
+                )
+            except Exception:
+                pass
+
+            # Run the agent
+            output = await spawn_agent(ctx, prompt, work_directory)
+
+            # Check if output contains an error
+            if output.startswith("Error:"):
+                return {"index": str(index), "error": output}
+
+            return {"index": str(index), "output": output}
+
+        except Exception as e:
+            return {"index": str(index), "error": f"Agent {index}: {str(e)}"}
+
+    # Run all agents concurrently
+    tasks = [run_one(i, agent) for i, agent in enumerate(agents)]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Handle any exceptions that weren't caught
+    final_results = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            final_results.append({"index": str(i), "error": f"Unexpected error: {str(result)}"})
+        else:
+            final_results.append(result)
+
+    return final_results
+
+
 def main() -> None:
     """Entry point for the MCP server v2."""
     mcp.run()

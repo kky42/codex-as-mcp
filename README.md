@@ -40,9 +40,10 @@ Or use Claude Desktop commands:
 claude mcp add codex-subagent -- uvx codex-as-mcp@latest
 ```
 
-## Tool
+## Tools
 
 - `spawn_agent(prompt, work_directory)` - Spawns an autonomous Codex subagent in the specified directory
+- `spawn_agents_parallel(agents)` - Spawns multiple Codex subagents in parallel. Takes a list of agent specs with `prompt` and `work_directory` fields
 
 ## How It Works
 

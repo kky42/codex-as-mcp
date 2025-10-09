@@ -36,7 +36,18 @@ Inputs:
 Behavior:
 - Executes: `codex e --cd <work_directory> --skip-git-repo-check --full-auto "<prompt>"`
 - Wraps the prompt in quotes; escapes inner quotes.
-- Sends periodic progress heartbeats so Inspector won’t time out.
+- Sends periodic progress heartbeats so Inspector won't time out.
+
+- **`spawn_agents_parallel`**: Run multiple Codex agents in parallel
+
+Inputs:
+- `agents` (list): List of agent specs, each with `prompt` and `work_directory` fields.
+  Example: `[{"prompt": "Create math.md", "work_directory": "/path/to/dir"}, {"prompt": "Create story.md", "work_directory": "/path/to/dir"}]`
+
+Behavior:
+- Runs multiple agents concurrently using asyncio.gather
+- Returns list of results with `index`, `output`, and optional `error` fields
+- Each agent runs independently in parallel
 
 ### Server Modes
 - Single mode: always writable (Codex edits files in `work_directory`).

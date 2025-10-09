@@ -41,6 +41,7 @@ claude mcp add codex-subagent -- uvx codex-as-mcp@latest
 ## 工具
 
 - `spawn_agent(prompt, work_directory)` - 在指定目录中生成自主 Codex 子代理
+- `spawn_agents_parallel(agents)` - 并行生成多个 Codex 子代理。接受包含 `prompt` 和 `work_directory` 字段的代理规格列表
 
 ## 工作原理
 

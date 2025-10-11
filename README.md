@@ -6,6 +6,14 @@
 
 Each subagent runs `codex e --full-auto` with complete autonomy in a specified directory. Perfect for Plus/Pro/Team subscribers leveraging GPT-5 capabilities.
 
+**Use it in Claude Code**
+
+There are two tools in codex-as-mcp
+![tools](assets/tools.png)
+
+You can spawn parallel codex subagents using prompt.
+![alt text](assets/delegation_subagents.png)
+
 ## Setup
 
 ### 1. Install Codex CLI

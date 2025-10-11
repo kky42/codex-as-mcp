@@ -4,6 +4,14 @@
 
 每个子代理在指定目录中以完全自主的方式运行 `codex e --full-auto`。非常适合 Plus/Pro/Team 订阅用户使用 GPT-5 能力。
 
+**在 Claude Code 中使用**
+
+codex-as-mcp 包含两个工具：
+![tools](assets/tools.png)
+
+你可以通过 prompt 并行启动多个 Codex 子代理：
+![alt text](assets/delegation_subagents.png)
+
 ## 安装
 
 ### 1. 安装 Codex CLI

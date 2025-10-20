@@ -10,7 +10,10 @@ codex-as-mcp 包含两个工具：
 ![tools](assets/tools.png)
 
 你可以通过 prompt 并行启动多个 Codex 子代理：
-![alt text](assets/delegation_subagents.png)
+![alt text](assets/claude.png)
+
+下图展示了并行委派两个任务的 Codex 会话示例：
+![Codex 使用示例](assets/codex.png)
 
 ## 安装
 
@@ -44,6 +47,13 @@ codex --version
 或者使用 Claude Desktop 命令：
 ```bash
 claude mcp add codex-subagent -- uvx codex-as-mcp@latest
+```
+
+如果直接配置 Codex CLI（例如 `~/.config/codex/config.toml`），可以添加：
+```toml
+[mcp_servers.subagents]
+command = "uvx"
+args = ["codex-as-mcp@latest"]
 ```
 
 ## 工具

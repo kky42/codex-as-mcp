@@ -1,9 +1,8 @@
 {
   "mcpServers": {
     "codex-subagent": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["codex-as-mcp@latest"]
+      "command": "uv",
+      "args": ["run", "python", "/Users/kky/Projects/codex-as-mcp/src/codex_as_mcp/server.py"]
     }
   }
 }

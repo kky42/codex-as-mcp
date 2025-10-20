@@ -149,6 +149,6 @@ case "$MODE" in
     export MCP_SERVER_REQUEST_TIMEOUT=${MCP_SERVER_REQUEST_TIMEOUT:-300000}
     export MCP_REQUEST_TIMEOUT_RESET_ON_PROGRESS=${MCP_REQUEST_TIMEOUT_RESET_ON_PROGRESS:-true}
     export MCP_REQUEST_MAX_TOTAL_TIMEOUT=${MCP_REQUEST_MAX_TOTAL_TIMEOUT:-28800000}
-    exec npx @modelcontextprotocol/inspector
+    exec npx @modelcontextprotocol/inspector -y
     ;;
 esac

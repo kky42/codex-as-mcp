@@ -1,11 +1,12 @@
 """
 Minimal MCP server (v2) exposing a single tool: `spawn_agent`.
 
-Tool: spawn_agent(prompt: str, work_directory: str) -> str
+Tool: spawn_agent(prompt: str) -> str
 - Runs the Codex CLI agent and returns its final response as the tool result.
 
 Command executed:
-    codex e --cd {work_directory} --skip-git-repo-check --full-auto {prompt}
+    codex e --cd {os.getcwd()} --skip-git-repo-check --full-auto \
+        --output-last-message {temp_output} "{prompt}"
 
 Notes:
 - No Authorization headers or extra auth flows are used.
@@ -14,11 +15,11 @@ Notes:
 """
 
 import asyncio
-import shutil
-import subprocess
-import time
-import tempfile
 import os
+import shutil
+import tempfile
+import time
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP, Context
 
@@ -49,38 +50,36 @@ def _resolve_codex_executable() -> str:
     return codex
 
 
-
-
-
 @mcp.tool()
-async def spawn_agent(ctx: Context, prompt: str, work_directory: str) -> str:
-    """Spawn a Codex agent to work inside a directory.
+async def spawn_agent(ctx: Context, prompt: str) -> str:
+    """Spawn a Codex agent to work inside the current working directory.
+
+    The server resolves the working directory via ``os.getcwd()`` so it inherits
+    whatever environment the MCP process currently has.
 
     Args:
         prompt: All instructions/context the agent needs for the task.
-        work_directory: Absolute path to the working directory for the task.
 
     Returns:
         The agent's final response (clean output from Codex CLI).
     """
     # Basic validation to avoid confusing UI errors
-    if not isinstance(prompt, str) or not isinstance(work_directory, str):
-        return "Error: 'prompt' and 'work_directory' must be strings."
+    if not isinstance(prompt, str):
+        return "Error: 'prompt' must be a string."
     if not prompt.strip():
         return "Error: 'prompt' is required and cannot be empty."
-    if not work_directory.strip():
-        return "Error: 'work_directory' is required and cannot be empty."
 
     try:
         codex_exec = _resolve_codex_executable()
     except FileNotFoundError as e:
         return f"Error: {e}"
 
-    # Create temp file for clean output
-    # Codex CLI detects non-TTY and outputs only the final response
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".txt", prefix="codex_output_")
-    
-    try:
+    work_directory = os.getcwd()
+
+    with tempfile.TemporaryDirectory(prefix="codex_output_") as temp_dir:
+        output_path = Path(temp_dir) / "last_message.md"
+        output_path.touch()
+
         # Quote the prompt so Codex CLI receives it wrapped in "..."
         quoted_prompt = '"' + prompt.replace('"', '\\"') + '"'
 
@@ -91,6 +90,8 @@ async def spawn_agent(ctx: Context, prompt: str, work_directory: str) -> str:
             work_directory,
             "--skip-git-repo-check",
             "--full-auto",
+            "--output-last-message",
+            str(output_path),
             quoted_prompt,
         ]
 
@@ -100,15 +101,17 @@ async def spawn_agent(ctx: Context, prompt: str, work_directory: str) -> str:
         except Exception:
             pass
 
-        # Run with stdout redirected to temp file
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdout=temp_fd,
+                stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
         except Exception as e:
             return f"Error: Failed to launch Codex agent: {e}"
+
+        stdout_task = asyncio.create_task(proc.stdout.read()) if proc.stdout else None
+        stderr_task = asyncio.create_task(proc.stderr.read()) if proc.stderr else None
 
         # Send periodic heartbeats while process runs
         last_ping = time.monotonic()
@@ -125,34 +128,33 @@ async def spawn_agent(ctx: Context, prompt: str, work_directory: str) -> str:
                     except Exception:
                         pass
 
-        # Read the clean output from temp file
-        with open(temp_path, "r") as f:
-            output = f.read().strip()
+        stdout = ""
+        if stdout_task:
+            stdout_bytes = await stdout_task
+            stdout = stdout_bytes.decode(errors="replace")
+
+        stderr = ""
+        if stderr_task:
+            stderr_bytes = await stderr_task
+            stderr = stderr_bytes.decode(errors="replace")
+
+        output = output_path.read_text(encoding="utf-8").strip()
 
         if returncode != 0:
-            # Read stderr for error details
-            stderr = ""
-            if proc.stderr:
-                stderr_bytes = await proc.stderr.read()
-                stderr = stderr_bytes.decode(errors="replace")
-            
-            return (
-                "Error: Codex agent exited with a non-zero status.\n"
-                f"Command: {' '.join(cmd)}\n"
-                f"Exit Code: {returncode}\n"
-                f"Stderr: {stderr}\n"
-                f"Output: {output}"
-            )
+            details = [
+                "Error: Codex agent exited with a non-zero status.",
+                f"Command: {' '.join(cmd)}",
+                f"Exit Code: {returncode}",
+            ]
+            if stderr:
+                details.append(f"Stderr: {stderr}")
+            if stdout:
+                details.append(f"Stdout: {stdout}")
+            if output:
+                details.append(f"Captured Output: {output}")
+            return "\n".join(details)
 
         return output
-
-    finally:
-        # Clean up temp file
-        try:
-            os.close(temp_fd)
-            os.unlink(temp_path)
-        except Exception:
-            pass
 
 
 @mcp.tool()
@@ -162,21 +164,24 @@ async def spawn_agents_parallel(
 ) -> list[dict[str, str]]:
     """Spawn multiple Codex agents in parallel.
 
+    Each spawned agent reuses the server's current working directory
+    (``os.getcwd()``).
+
     Args:
-        agents: List of agent specs, each with 'prompt' and 'work_directory'.
+        agents: List of agent specs, each with a 'prompt' entry.
                 Example: [
-                    {"prompt": "Create math.md", "work_directory": "/path/to/dir"},
-                    {"prompt": "Create story.md", "work_directory": "/path/to/dir"}
+                    {"prompt": "Create math.md"},
+                    {"prompt": "Create story.md"}
                 ]
 
     Returns:
         List of results with 'index', 'output', and optional 'error' fields.
     """
     if not isinstance(agents, list):
-        return [{"index": "0", "error": "Error: 'agents' must be a list of agent specs"}]
+        return [{"index": "0", "error": "Error: 'agents' must be a list of agent specs."}]
 
     if not agents:
-        return [{"index": "0", "error": "Error: 'agents' list cannot be empty"}]
+        return [{"index": "0", "error": "Error: 'agents' list cannot be empty."}]
 
     async def run_one(index: int, spec: dict) -> dict:
         """Run a single agent and return result with index."""
@@ -185,11 +190,10 @@ async def spawn_agents_parallel(
             if not isinstance(spec, dict):
                 return {
                     "index": str(index),
-                    "error": f"Agent {index}: spec must be a dictionary with 'prompt' and 'work_directory'"
+                    "error": f"Agent {index}: spec must be a dictionary with a 'prompt' field."
                 }
 
             prompt = spec.get("prompt", "")
-            work_directory = spec.get("work_directory", "")
 
             # Report progress for this agent
             try:
@@ -202,7 +206,7 @@ async def spawn_agents_parallel(
                 pass
 
             # Run the agent
-            output = await spawn_agent(ctx, prompt, work_directory)
+            output = await spawn_agent(ctx, prompt)
 
             # Check if output contains an error
             if output.startswith("Error:"):

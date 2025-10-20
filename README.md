@@ -14,6 +14,9 @@ There are two tools in codex-as-mcp
 You can spawn parallel codex subagents using prompt.
 ![alt text](assets/claude.png)
 
+Here's a sample Codex session delegating two tasks in parallel.
+![Codex use case](assets/codex.png)
+
 ## Setup
 
 ### 1. Install Codex CLI
@@ -46,6 +49,13 @@ Add to your `.mcp.json`:
 Or use Claude Desktop commands:
 ```bash
 claude mcp add codex-subagent -- uvx codex-as-mcp@latest
+```
+
+If you're configuring Codex CLI directly (for example `~/.config/codex/config.toml`), add:
+```toml
+[mcp_servers.subagents]
+command = "uvx"
+args = ["codex-as-mcp@latest"]
 ```
 
 ## Tools

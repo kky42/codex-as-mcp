@@ -27,27 +27,26 @@ If you see quick request timeouts, increase Inspector timeouts or use `test.sh` 
 - `MCP_REQUEST_MAX_TOTAL_TIMEOUT=28800000`
 
 ### Available Tools to Test
-- **`spawn_agent`**: Run Codex agent inside a directory and return its stdout
+- **`spawn_agent`**: Run a Codex agent and return its final response.
 
 Inputs:
 - `prompt` (string): Everything the agent should know/do.
-- `work_directory` (string): Absolute path where the agent works.
 
 Behavior:
-- Executes: `codex e --cd <work_directory> --skip-git-repo-check --full-auto "<prompt>"`
+- Executes: `codex e --cd <server working directory> --skip-git-repo-check --full-auto "<prompt>"`
 - Wraps the prompt in quotes; escapes inner quotes.
-- Sends periodic progress heartbeats so Inspector won't time out.
+- Reads the Codex agent's last message from disk and returns it; heartbeats keep Inspector sessions alive.
 
 - **`spawn_agents_parallel`**: Run multiple Codex agents in parallel
 
 Inputs:
-- `agents` (list): List of agent specs, each with `prompt` and `work_directory` fields.
-  Example: `[{"prompt": "Create math.md", "work_directory": "/path/to/dir"}, {"prompt": "Create story.md", "work_directory": "/path/to/dir"}]`
+- `agents` (list): List of agent specs, each with a `prompt` field.
+  Example: `[{"prompt": "Create math.md"}, {"prompt": "Create story.md"}]`
 
 Behavior:
-- Runs multiple agents concurrently using asyncio.gather
-- Returns list of results with `index`, `output`, and optional `error` fields
-- Each agent runs independently in parallel
+- Reuses the server working directory for every agent.
+- Runs agents concurrently using asyncio.gather.
+- Returns list of results with `index`, plus either `output` (final message) or `error` for each agent.
 
 ### Server Modes
 - Single mode: always writable (Codex edits files in `work_directory`).

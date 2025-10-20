@@ -4,7 +4,7 @@
 
 **Spawn multiple subagents via Codex-as-MCP**
 
-Each subagent runs `codex e --full-auto` with complete autonomy in a specified directory. Perfect for Plus/Pro/Team subscribers leveraging GPT-5 capabilities.
+Each subagent runs `codex e --full-auto` with complete autonomy inside the MCP server's current working directory. Perfect for Plus/Pro/Team subscribers leveraging GPT-5 capabilities.
 
 **Use it in Claude Code**
 
@@ -12,7 +12,7 @@ There are two tools in codex-as-mcp
 ![tools](assets/tools.png)
 
 You can spawn parallel codex subagents using prompt.
-![alt text](assets/delegation_subagents.png)
+![alt text](assets/claude.png)
 
 ## Setup
 
@@ -50,5 +50,5 @@ claude mcp add codex-subagent -- uvx codex-as-mcp@latest
 
 ## Tools
 
-- `spawn_agent(prompt, work_directory)` - Spawns an autonomous Codex subagent in the specified directory
-- `spawn_agents_parallel(agents)` - Spawns multiple Codex subagents in parallel. Takes a list of agent specs with `prompt` and `work_directory` fields
+- `spawn_agent(prompt: str)` – Spawns an autonomous Codex subagent using the server's working directory and returns the agent's final message.
+- `spawn_agents_parallel(agents: list[dict])` – Spawns multiple Codex subagents in parallel; each item must include a `prompt` key and results include either an `output` or an `error` per agent.

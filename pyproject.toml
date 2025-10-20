@@ -1,6 +1,6 @@
 [project]
 name = "codex-as-mcp"
-version = "2025.10.9.3"
+version = "2025.10.20.1"
 description = "MCP server for delegating tasks to Codex CLI subagents"
 readme = "README.md"
 requires-python = ">=3.11"

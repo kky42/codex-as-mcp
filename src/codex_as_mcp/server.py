@@ -51,7 +51,7 @@ def _resolve_codex_executable() -> str:
 
 
 @mcp.tool()
-async def spawn_agent(ctx: Context, prompt: str) -> str:
+async def spawn_agent(ctx: Context, prompt: str, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> str:
     """Spawn a Codex agent to work inside the current working directory.
 
     The server resolves the working directory via ``os.getcwd()`` so it inherits
@@ -59,6 +59,7 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
 
     Args:
         prompt: All instructions/context the agent needs for the task.
+        timeout: Maximum execution time in seconds (default: 8 hours).
 
     Returns:
         The agent's final response (clean output from Codex CLI).
@@ -114,8 +115,20 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
         stderr_task = asyncio.create_task(proc.stderr.read()) if proc.stderr else None
 
         # Send periodic heartbeats while process runs
-        last_ping = time.monotonic()
+        start_time = time.monotonic()
+        last_ping = start_time
         while True:
+            # Check for total timeout
+            if time.monotonic() - start_time > timeout:
+                try:
+                    proc.terminate()
+                    await asyncio.sleep(0.5)
+                    if proc.returncode is None:
+                        proc.kill()
+                except Exception:
+                    pass
+                return f"Error: Codex agent timed out after {timeout} seconds."
+
             try:
                 returncode = await asyncio.wait_for(proc.wait(), timeout=2.0)
                 break
@@ -160,7 +173,8 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
 @mcp.tool()
 async def spawn_agents_parallel(
     ctx: Context,
-    agents: list[dict[str, str]]
+    agents: list[dict[str, str]],
+    timeout: int = DEFAULT_TIMEOUT_SECONDS
 ) -> list[dict[str, str]]:
     """Spawn multiple Codex agents in parallel.
 
@@ -173,6 +187,7 @@ async def spawn_agents_parallel(
                     {"prompt": "Create math.md"},
                     {"prompt": "Create story.md"}
                 ]
+        timeout: Maximum execution time in seconds per agent (default: 8 hours).
 
     Returns:
         List of results with 'index', 'output', and optional 'error' fields.
@@ -206,7 +221,7 @@ async def spawn_agents_parallel(
                 pass
 
             # Run the agent
-            output = await spawn_agent(ctx, prompt)
+            output = await spawn_agent(ctx, prompt, timeout=timeout)
 
             # Check if output contains an error
             if output.startswith("Error:"):

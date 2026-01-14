@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026.1.14.1] - 2026-01-14
+
+### 🛠️ Fixed
+- Enforce timeouts and terminate Codex subprocess trees on timeout.
+- Optional dotenv injection into spawned `codex` env for sanitized stdio environments.
+- Normalize `spawn_agents_parallel` results to a stable `{index, output, error}` shape.
+
+### 📚 Documentation
+- Document new environment variables and updated tool behaviors.
+
+### 🔢 Versioning
+- Release `2026.1.14.1` and publish to PyPI.
+
 ## [2025.10.20.1] - 2025-10-20
 
 ### 📚 Documentation

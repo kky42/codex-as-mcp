@@ -59,4 +59,11 @@ args = ["codex-as-mcp@latest"]
 ## 工具
 
 - `spawn_agent(prompt: str)` – 在服务器的工作目录内生成自主 Codex 子代理，并返回代理的最终消息。
-- `spawn_agents_parallel(agents: list[dict])` – 并行生成多个 Codex 子代理；每个元素需要包含 `prompt` 字段，返回值会按索引给出每个子代理的 `output`（最终消息）或 `error`。
+- `spawn_agents_parallel(agents: list[dict])` – 并行生成多个 Codex 子代理；每个元素需要包含 `prompt` 字段，返回值会按索引给出每个子代理的 `output`（最终消息）与 `error`（无错误时为空字符串）。
+
+## 环境变量（可选）
+
+- `CODEX_AS_MCP_AGENT_TIMEOUT_SECONDS`：每次启动的 Codex 运行的总超时时间（默认：8 小时）。
+- `CODEX_AS_MCP_LOAD_DOTENV=1`：从服务器工作目录加载 `./.env` 并注入到 `codex` 子进程环境中（在某些 stdio 客户端会“净化”环境变量时很有用）。
+  - `CODEX_AS_MCP_DOTENV_PATH`（默认：`.env`）
+  - `CODEX_AS_MCP_DOTENV_OVERRIDE=1`：覆盖已存在的环境变量（默认只补齐缺失项）。

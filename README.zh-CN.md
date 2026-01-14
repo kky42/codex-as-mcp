@@ -58,5 +58,49 @@ args = ["codex-as-mcp@latest"]
 
 ## 工具
 
-- `spawn_agent(prompt: str)` – 在服务器的工作目录内生成自主 Codex 子代理，并返回代理的最终消息。
+- `spawn_agent(prompt: str, env?: dict[str, str])` – 在服务器的工作目录内生成自主 Codex 子代理，并返回代理的最终消息。
 - `spawn_agents_parallel(agents: list[dict])` – 并行生成多个 Codex 子代理；每个元素需要包含 `prompt` 字段，返回值会按索引给出每个子代理的 `output`（最终消息）或 `error`。
+
+## Provider 凭证（`env_key`）
+
+如果你的 `~/.codex/config.toml`（或 `~/.config/codex/config.toml`）里某个 provider 配置了 `env_key`，Codex CLI 运行时会从环境变量里读取对应的 Key。
+
+示例：
+```toml
+[model_providers.your_provider]
+name = "your_provider"
+base_url = "https://your-provider.example/v1"
+wire_api = "responses"
+env_key = "YOUR_ENV_KEY_NAME"
+```
+
+请确保 MCP server 进程拥有该环境变量，这样它才能把变量透传给其启动的 `codex` 子进程。
+环境变量名必须与上面的 `env_key` 值一致。
+
+**方式 A（推荐）：在 MCP 客户端配置里设置 env（如果支持）**
+```json
+{
+  "mcpServers": {
+    "codex-subagent": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["codex-as-mcp@latest"],
+      "env": {
+        "YOUR_ENV_KEY_NAME": "KEY_VALUE"
+      }
+    }
+  }
+}
+```
+
+**方式 B：通过 server 启动参数传入 env**
+```bash
+uvx codex-as-mcp@latest --env YOUR_ENV_KEY_NAME=KEY_VALUE
+```
+
+**方式 C：通过 Codex CLI（`codex mcp add`）添加**
+```bash
+codex mcp add codex-subagent --env YOUR_ENV_KEY_NAME=KEY_VALUE -- uvx codex-as-mcp@latest
+```
+
+安全提示：把密钥写在命令行参数里，可能会在本机进程列表中可见；优先使用方式 A。

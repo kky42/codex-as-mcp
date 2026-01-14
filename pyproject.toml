@@ -1,6 +1,6 @@
 [project]
 name = "codex-as-mcp"
-version = "2026.1.14.3"
+version = "2026.1.14.4"
 description = "MCP server for delegating tasks to Codex CLI subagents"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-codex-as-mcp = "codex_as_mcp.server:main"
+codex-as-mcp = "codex_as_mcp.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/kky42/codex-as-mcp"

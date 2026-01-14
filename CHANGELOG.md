@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🔄 Changed
 - Roll back the codebase to the `8cdf8bd` implementation and republish a new version.
 
+## [2026.1.14.4] - 2026-01-14
+
+### ➕ Added
+- Support passing provider credentials/env vars through the MCP server to spawned Codex CLI processes:
+  - Tool-level override via `spawn_agent(..., env={...})` / `spawn_agents_parallel(..., env={...})`
+  - Server-level defaults via `--env KEY=VALUE` (repeatable)
+
+### 📚 Documentation
+- Document `env_key` behavior and include examples for Claude Code, `uvx`, and `codex mcp add --env`.
+
 ## [2025.10.20.1] - 2025-10-20
 
 ### 📚 Documentation

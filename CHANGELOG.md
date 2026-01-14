@@ -5,29 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2026.1.14.2] - 2026-01-14
+## [2026.1.14.3] - 2026-01-14
 
-### 🛠️ Fixed
-- Improve reliability in sanitized MCP environments by sourcing common shell rc files to recover user env vars (e.g., `PATH`, provider credentials) before spawning `codex`.
-
-### 📚 Documentation
-- Document shell env sourcing controls and related environment variables.
-
-### 🔢 Versioning
-- Release `2026.1.14.2` and publish to PyPI.
-
-## [2026.1.14.1] - 2026-01-14
-
-### 🛠️ Fixed
-- Enforce timeouts and terminate Codex subprocess trees on timeout.
-- Optional dotenv injection into spawned `codex` env for sanitized stdio environments.
-- Normalize `spawn_agents_parallel` results to a stable `{index, output, error}` shape.
-
-### 📚 Documentation
-- Document new environment variables and updated tool behaviors.
-
-### 🔢 Versioning
-- Release `2026.1.14.1` and publish to PyPI.
+### 🔄 Changed
+- Roll back the codebase to the `8cdf8bd` implementation and republish a new version.
 
 ## [2025.10.20.1] - 2025-10-20
 

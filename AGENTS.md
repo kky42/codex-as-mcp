@@ -34,13 +34,8 @@ Inputs:
 
 Behavior:
 - Executes: `codex e --cd <server working directory> --skip-git-repo-check --full-auto "<prompt>"`
-- Passes the prompt as a single CLI argument (no extra quoting layer).
+- Wraps the prompt in quotes; escapes inner quotes.
 - Reads the Codex agent's last message from disk and returns it; heartbeats keep Inspector sessions alive.
-- Optional env (set when launching the MCP server):
-  - `CODEX_AS_MCP_AGENT_TIMEOUT_SECONDS`: Overall timeout for each spawned Codex run (default: 8 hours).
-  - `CODEX_AS_MCP_LOAD_DOTENV=1`: Load `./.env` from the server working directory and inject into the `codex` subprocess env (helpful with sanitized stdio envs).
-    - `CODEX_AS_MCP_DOTENV_PATH` (default: `.env`)
-    - `CODEX_AS_MCP_DOTENV_OVERRIDE=1` to override existing env vars instead of only filling missing ones.
 
 - **`spawn_agents_parallel`**: Run multiple Codex agents in parallel
 
@@ -51,7 +46,7 @@ Inputs:
 Behavior:
 - Reuses the server working directory for every agent.
 - Runs agents concurrently using asyncio.gather.
-- Returns list of results with `index`, `output` (final message), and `error` (empty string if none) for each agent.
+- Returns list of results with `index`, plus either `output` (final message) or `error` for each agent.
 
 ### Server Modes
 - Single mode: always writable (Codex edits files in `work_directory`).

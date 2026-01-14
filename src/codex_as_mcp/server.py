@@ -16,6 +16,7 @@ Notes:
 
 import asyncio
 import os
+import re
 import shutil
 import signal
 import tempfile
@@ -34,12 +35,19 @@ mcp = FastMCP("codex-subagent")
 
 
 _DOTENV_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
+_SHELL_ENV_CACHE: tuple[tuple[tuple[Path, float], ...], dict[str, str]] | None = None
 
 
 def _is_truthy(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _is_falsy(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"0", "false", "no", "n", "off"}
 
 
 def _parse_dotenv_file(path: Path) -> dict[str, str]:
@@ -108,6 +116,202 @@ def _build_codex_env(work_directory: str) -> dict[str, str]:
                 env.setdefault(k, v)
 
     return env
+
+
+def _split_csv_env(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    parts: list[str] = []
+    for token in raw.split(","):
+        value = token.strip()
+        if value:
+            parts.append(value)
+    return parts
+
+
+def _extract_missing_env_var(stderr: str) -> str | None:
+    # Example: "ERROR: Missing environment variable: `SOME_API_KEY`."
+    match = re.search(r"Missing environment variable:\s*[`'\"]?([A-Z0-9_]+)[`'\"]?", stderr)
+    if not match:
+        return None
+    return match.group(1)
+
+
+def _format_env_missing_error(*, missing_vars: list[str]) -> str:
+    missing = ", ".join(missing_vars)
+    lines: list[str] = [
+        f"Error: Missing required environment variable(s): {missing}.",
+    ]
+
+    lines.extend(
+        [
+            "Fix: export the variable(s) in the environment that launches this MCP server.",
+            "If your MCP client sanitizes env vars, enable shell env sourcing (default) or use `.env` injection:",
+            "  - CODEX_AS_MCP_SOURCE_SHELL_ENV=1",
+            "  - CODEX_AS_MCP_LOAD_DOTENV=1",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _preflight_codex_env(env: dict[str, str]) -> str | None:
+    """
+    Fail fast with a clear error when required env vars are missing.
+
+    This avoids confusing subprocess failures when the Codex CLI provider expects
+    certain credentials to be present.
+    """
+    required = set(_split_csv_env(env.get("CODEX_AS_MCP_REQUIRED_ENV_VARS")))
+
+    if not required:
+        return None
+
+    missing = sorted([k for k in required if not env.get(k)])
+    if not missing:
+        return None
+
+    return _format_env_missing_error(missing_vars=missing)
+
+
+def _sh_single_quote(value: str) -> str:
+    # Safe single-quote for sh-like shells: ' -> '"'"'
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
+def _default_shell_rc_files(env: dict[str, str]) -> list[Path]:
+    home = env.get("HOME")
+    if not home:
+        return []
+
+    candidates = [
+        ".zshrc",
+        ".zprofile",
+        ".bashrc",
+        ".bash_profile",
+        ".profile",
+    ]
+    return [Path(home) / name for name in candidates]
+
+
+def _parse_shell_rc_files(env: dict[str, str]) -> list[Path]:
+    raw = env.get("CODEX_AS_MCP_SHELL_RC_FILES")
+    if not raw:
+        return _default_shell_rc_files(env)
+
+    files: list[Path] = []
+    for item in _split_csv_env(raw):
+        p = Path(item).expanduser()
+        if not p.is_absolute():
+            home = env.get("HOME")
+            if home:
+                p = Path(home) / p
+        files.append(p)
+    return files
+
+
+def _resolve_shell_executable(env: dict[str, str]) -> str | None:
+    preferred = env.get("CODEX_AS_MCP_SHELL") or env.get("SHELL")
+    if preferred:
+        resolved = shutil.which(preferred) if not os.path.isabs(preferred) else preferred
+        if resolved and os.path.exists(resolved):
+            return resolved
+
+    for candidate in ("zsh", "bash", "sh"):
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
+    return None
+
+
+def _shell_env_cache_key(files: list[Path]) -> tuple[tuple[Path, float], ...]:
+    items: list[tuple[Path, float]] = []
+    for p in files:
+        try:
+            items.append((p, p.stat().st_mtime))
+        except FileNotFoundError:
+            items.append((p, -1.0))
+        except Exception:
+            items.append((p, -2.0))
+    return tuple(items)
+
+
+async def _load_shell_env(env: dict[str, str]) -> tuple[dict[str, str], str | None]:
+    """
+    Load environment variables by sourcing common shell rc files and printing `env -0`.
+
+    Returns (env_updates, error_message).
+    """
+    shell = _resolve_shell_executable(env)
+    if not shell:
+        return {}, "Error: Unable to find a usable shell (tried $SHELL, zsh, bash, sh)."
+
+    rc_files = _parse_shell_rc_files(env)
+    global _SHELL_ENV_CACHE
+    cache_key = _shell_env_cache_key(rc_files)
+    if _SHELL_ENV_CACHE and _SHELL_ENV_CACHE[0] == cache_key:
+        return _SHELL_ENV_CACHE[1], None
+
+    quoted_files = " ".join(_sh_single_quote(str(p)) for p, _mtime in cache_key)
+    script = (
+        "set -a; "
+        f"for f in {quoted_files}; do "
+        "[ -f \"$f\" ] && . \"$f\"; "
+        "done; "
+        "env -0"
+    )
+
+    timeout_s = 5.0
+    raw_timeout = env.get("CODEX_AS_MCP_SHELL_ENV_TIMEOUT_SECONDS")
+    if raw_timeout:
+        try:
+            timeout_s = max(0.1, float(raw_timeout))
+        except Exception:
+            timeout_s = 5.0
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            shell,
+            "-lc",
+            script,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
+    except asyncio.TimeoutError:
+        return {}, (
+            "Error: Timed out while sourcing shell rc files to populate environment.\n"
+            "Fix: set CODEX_AS_MCP_SOURCE_SHELL_ENV=0 to disable, or increase "
+            "CODEX_AS_MCP_SHELL_ENV_TIMEOUT_SECONDS."
+        )
+    except Exception as e:
+        return {}, f"Error: Failed to source shell environment: {e}"
+
+    if proc.returncode != 0:
+        stderr = (stderr_b or b"").decode(errors="replace").strip()
+        return {}, (
+            "Error: Failed to source shell environment (non-zero exit).\n"
+            f"Shell: {shell}\n"
+            f"Exit Code: {proc.returncode}\n"
+            f"Stderr: {stderr}"
+        )
+
+    out = stdout_b or b""
+    updates: dict[str, str] = {}
+    for chunk in out.split(b"\x00"):
+        if not chunk or b"=" not in chunk:
+            continue
+        k, v = chunk.split(b"=", 1)
+        try:
+            key = k.decode(errors="replace")
+            val = v.decode(errors="replace")
+        except Exception:
+            continue
+        if key:
+            updates[key] = val
+
+    _SHELL_ENV_CACHE = (cache_key, updates)
+    return updates, None
 
 
 def _get_timeout_seconds() -> int:
@@ -201,6 +405,26 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
 
     work_directory = os.getcwd()
     timeout_seconds = _get_timeout_seconds()
+    env = _build_codex_env(work_directory)
+
+    # Best effort: source common shell rc files to recover env vars in sanitized stdio clients.
+    # Enabled by default; set CODEX_AS_MCP_SOURCE_SHELL_ENV=0 to disable.
+    if not _is_falsy(env.get("CODEX_AS_MCP_SOURCE_SHELL_ENV")):
+        shell_env, shell_err = await _load_shell_env(env)
+        if shell_err:
+            return shell_err
+
+        # By default, fill missing vars from the shell, but always refresh PATH to match the user shell.
+        override_all = _is_truthy(env.get("CODEX_AS_MCP_SHELL_ENV_OVERRIDE"))
+        for k, v in shell_env.items():
+            if override_all or k == "PATH":
+                env[k] = v
+            else:
+                env.setdefault(k, v)
+
+    preflight_error = _preflight_codex_env(env)
+    if preflight_error:
+        return preflight_error
 
     with tempfile.TemporaryDirectory(prefix="codex_output_") as temp_dir:
         output_path = Path(temp_dir) / "last_message.md"
@@ -231,7 +455,7 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
                 stderr=asyncio.subprocess.PIPE,
                 # Start a new process group so we can terminate subprocess trees on timeout.
                 start_new_session=True if os.name != "nt" else False,
-                env=_build_codex_env(work_directory),
+                env=env,
             )
         except Exception as e:
             return f"Error: Failed to launch Codex agent: {e}"
@@ -288,6 +512,15 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
                 f"Command: {' '.join(cmd)}",
                 f"Exit Code: {returncode}",
             ]
+
+            missing_var = _extract_missing_env_var(stderr)
+            if missing_var:
+                # Provide targeted, actionable guidance for a common failure mode.
+                details.append(
+                    _format_env_missing_error(
+                        missing_vars=[missing_var],
+                    )
+                )
             if stderr:
                 details.append(f"Stderr: {stderr}")
             if stdout:

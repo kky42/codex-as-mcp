@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2026.1.14.2] - 2026-01-14
+
+### 🛠️ Fixed
+- Improve reliability in sanitized MCP environments by sourcing common shell rc files to recover user env vars (e.g., `PATH`, provider credentials) before spawning `codex`.
+
+### 📚 Documentation
+- Document shell env sourcing controls and related environment variables.
+
+### 🔢 Versioning
+- Release `2026.1.14.2` and publish to PyPI.
+
 ## [2026.1.14.1] - 2026-01-14
 
 ### 🛠️ Fixed

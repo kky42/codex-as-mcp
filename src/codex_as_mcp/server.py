@@ -20,7 +20,6 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
 
 from mcp.server.fastmcp import FastMCP, Context
 
@@ -46,27 +45,9 @@ def set_default_child_env(overrides: dict[str, str]) -> None:
     _DEFAULT_CHILD_ENV_OVERRIDES.update(overrides)
 
 
-def _normalize_env_mapping(value: Any) -> dict[str, str] | None:
-    if value is None:
-        return None
-    if not isinstance(value, dict):
-        raise TypeError("'env' must be an object/dict of string keys to string values.")
-
-    normalized: dict[str, str] = {}
-    for key, env_value in value.items():
-        if not isinstance(key, str) or not key:
-            raise TypeError("'env' keys must be non-empty strings.")
-        if not isinstance(env_value, str):
-            raise TypeError(f"'env[{key}]' must be a string.")
-        normalized[key] = env_value
-    return normalized
-
-
-def _build_child_env(extra_env: dict[str, str] | None) -> dict[str, str]:
+def _build_child_env() -> dict[str, str]:
     merged = dict(os.environ)
     merged.update(_DEFAULT_CHILD_ENV_OVERRIDES)
-    if extra_env:
-        merged.update(extra_env)
     return merged
 
 
@@ -89,7 +70,7 @@ def _resolve_codex_executable() -> str:
 
 
 @mcp.tool()
-async def spawn_agent(ctx: Context, prompt: str, env: dict[str, str] | None = None) -> str:
+async def spawn_agent(ctx: Context, prompt: str) -> str:
     """Spawn a Codex agent to work inside the current working directory.
 
     The server resolves the working directory via ``os.getcwd()`` so it inherits
@@ -97,9 +78,6 @@ async def spawn_agent(ctx: Context, prompt: str, env: dict[str, str] | None = No
 
     Args:
         prompt: All instructions/context the agent needs for the task.
-        env: Optional environment variables to add/override for the spawned
-             Codex CLI process (the env var name should match your provider's
-             `env_key` in Codex config.toml).
 
     Returns:
         The agent's final response (clean output from Codex CLI).
@@ -109,11 +87,6 @@ async def spawn_agent(ctx: Context, prompt: str, env: dict[str, str] | None = No
         return "Error: 'prompt' must be a string."
     if not prompt.strip():
         return "Error: 'prompt' is required and cannot be empty."
-
-    try:
-        extra_env = _normalize_env_mapping(env)
-    except Exception as e:
-        return f"Error: {e}"
 
     try:
         codex_exec = _resolve_codex_executable()
@@ -152,7 +125,7 @@ async def spawn_agent(ctx: Context, prompt: str, env: dict[str, str] | None = No
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=_build_child_env(extra_env),
+                env=_build_child_env(),
             )
         except Exception as e:
             return f"Error: Failed to launch Codex agent: {e}"
@@ -218,8 +191,7 @@ async def spawn_agents_parallel(
         agents: List of agent specs, each with a 'prompt' entry.
                 Example: [
                     {"prompt": "Create math.md"},
-                    {"prompt": "Create story.md"},
-                    {"prompt": "Create README.md", "env": {"YOUR_ENV_KEY_NAME": "KEY_VALUE"}}
+                    {"prompt": "Create story.md"}
                 ]
 
     Returns:
@@ -242,7 +214,6 @@ async def spawn_agents_parallel(
                 }
 
             prompt = spec.get("prompt", "")
-            env_override = spec.get("env")
 
             # Report progress for this agent
             try:
@@ -255,7 +226,7 @@ async def spawn_agents_parallel(
                 pass
 
             # Run the agent
-            output = await spawn_agent(ctx, prompt, env=env_override)
+            output = await spawn_agent(ctx, prompt)
 
             # Check if output contains an error
             if output.startswith("Error:"):

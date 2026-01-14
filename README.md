@@ -5,7 +5,7 @@
 `codex-as-mcp` is a small **Model Context Protocol (MCP)** server that lets MCP clients (Claude Code, Cursor, etc.) delegate work to the **Codex CLI**.
 
 It exposes two tools that run Codex in the server's current working directory:
-- `spawn_agent(prompt: str, env?: dict[str, str])`
+- `spawn_agent(prompt: str)`
 - `spawn_agents_parallel(agents: list[dict])`
 
 Under the hood, each agent runs something like:
@@ -40,20 +40,23 @@ codex --version
 
 Make sure Codex CLI can run non-interactively on your machine (provider + credentials in `~/.codex/config.toml`, or via the provider-specific env var it references).
 
-### Provider credentials (`env_key`)
+#### Example: third-party provider + `env_key`
 
-If your `~/.codex/config.toml` (or `~/.config/codex/config.toml`) provider config uses an `env_key`, Codex CLI expects that env var to be present when it runs.
+If you're using a third-party provider, configure it in Codex `config.toml` and point `model_provider` at it. When a provider uses `env_key`, Codex CLI expects that env var to be present when it runs.
 
 Example:
 ```toml
-[model_providers.your_provider]
-name = "your_provider"
-base_url = "https://your-provider.example/v1"
+model_provider = "custom_provider"
+
+[model_providers.custom_provider]
+name = "custom_provider"
+base_url = "https://..."
 wire_api = "responses"
-env_key = "YOUR_ENV_KEY_NAME"
+env_key = "PROVIDER_API_KEY"
+show_raw_agent_reasoning = true
 ```
 
-Make sure the MCP server process has that env var set, so it can pass it through to the spawned `codex` process. The env var name **must match** the `env_key` value above.
+When using `codex-as-mcp`, make sure the MCP server process has that env var set, so it can pass it through to the spawned `codex` process. The env var name **must match** the `env_key` value above (here: `PROVIDER_API_KEY`).
 
 **Option A (recommended): set env in your MCP client config (if supported)**
 ```json
@@ -64,7 +67,7 @@ Make sure the MCP server process has that env var set, so it can pass it through
       "command": "uvx",
       "args": ["codex-as-mcp@latest"],
       "env": {
-        "YOUR_ENV_KEY_NAME": "KEY_VALUE"
+        "PROVIDER_API_KEY": "KEY_VALUE"
       }
     }
   }
@@ -73,12 +76,12 @@ Make sure the MCP server process has that env var set, so it can pass it through
 
 **Option B: pass env via server args**
 ```bash
-uvx codex-as-mcp@latest --env YOUR_ENV_KEY_NAME=KEY_VALUE
+uvx codex-as-mcp@latest --env PROVIDER_API_KEY=KEY_VALUE
 ```
 
 **Option C: add via Codex CLI (`codex mcp add`)**
 ```bash
-codex mcp add codex-subagent --env YOUR_ENV_KEY_NAME=KEY_VALUE -- uvx codex-as-mcp@latest
+codex mcp add codex-subagent --env PROVIDER_API_KEY=KEY_VALUE -- uvx codex-as-mcp@latest
 ```
 
 Security note: passing secrets via command-line args may be visible via process lists on your machine; prefer option A when possible.
@@ -112,5 +115,5 @@ args = ["codex-as-mcp@latest"]
 
 ## Tools
 
-- `spawn_agent(prompt: str, env?: dict[str, str])` – Spawns an autonomous Codex subagent using the server's working directory and returns the agent's final message. Use `env` to pass provider credentials (the env var name must match `env_key` in Codex config.toml) if your MCP client cannot set server-level environment variables.
-- `spawn_agents_parallel(agents: list[dict])` – Spawns multiple Codex subagents in parallel; each item must include a `prompt` key and may include `env`; results include either an `output` or an `error` per agent.
+- `spawn_agent(prompt: str)` – Spawns an autonomous Codex subagent using the server's working directory and returns the agent's final message.
+- `spawn_agents_parallel(agents: list[dict])` – Spawns multiple Codex subagents in parallel; each item must include a `prompt` key and results include either an `output` or an `error` per agent.

@@ -14,11 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ➕ Added
 - Support passing provider credentials/env vars through the MCP server to spawned Codex CLI processes:
-  - Tool-level override via `spawn_agent(..., env={...})` / `spawn_agents_parallel(..., env={...})`
   - Server-level defaults via `--env KEY=VALUE` (repeatable)
 
 ### 📚 Documentation
 - Document `env_key` behavior and include examples for Claude Code, `uvx`, and `codex mcp add --env`.
+
+## [2026.1.14.5] - 2026-01-14
+
+### 🔄 Changed
+- README now includes a concrete third-party provider `config.toml` example and shows adding the MCP with `PROVIDER_API_KEY=...` when `env_key="PROVIDER_API_KEY"`.
+
+### 🧹 Removed
+- Removed the tool-level `env` parameter; credentials are provided when launching the MCP server (environment), not by tool callers.
 
 ## [2025.10.20.1] - 2025-10-20
 

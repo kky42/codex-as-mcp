@@ -109,11 +109,49 @@ claude mcp add codex-subagent -- uvx codex-as-mcp@latest
 If you're configuring Codex CLI directly (for example `~/.config/codex/config.toml`), add:
 ```toml
 [mcp_servers.subagents]
+transport = "stdio"
 command = "uvx"
 args = ["codex-as-mcp@latest"]
+# Increase if you see ~60s tool-call timeouts when running longer Codex tasks.
+# tool_timeout_sec = 600
 ```
 
 ## Tools
 
 - `spawn_agent(prompt: str)` – Spawns an autonomous Codex subagent using the server's working directory and returns the agent's final message.
 - `spawn_agents_parallel(agents: list[dict])` – Spawns multiple Codex subagents in parallel; each item must include a `prompt` key and results include either an `output` or an `error` per agent.
+
+## Troubleshooting
+
+### `spawn_agent` times out after ~60s
+
+If you see an error like:
+```text
+tool call failed for `subagents/spawn_agent`
+timed out awaiting tools/call after 60s
+deadline has elapsed
+```
+
+This is typically a client-side MCP tool-call timeout. `spawn_agent` does not return until the spawned `codex exec` process finishes, which can take longer than 60 seconds.
+
+Fix: increase the tool-call timeout in your MCP client.
+
+#### Codex CLI
+
+In your Codex config (`~/.codex/config.toml` or `~/.config/codex/config.toml`), set a higher `tool_timeout_sec` for the MCP server:
+```toml
+[mcp_servers.subagents]
+transport = "stdio"
+command = "uvx"
+args = ["codex-as-mcp@latest"]
+tool_timeout_sec = 600
+```
+
+#### MCP Inspector / `mcp dev`
+
+If you're testing locally with the MCP Inspector, increase request timeouts (or run `./test.sh`, which exports these):
+```bash
+export MCP_SERVER_REQUEST_TIMEOUT=300000
+export MCP_REQUEST_TIMEOUT_RESET_ON_PROGRESS=true
+export MCP_REQUEST_MAX_TOTAL_TIMEOUT=28800000
+```

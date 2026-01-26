@@ -1,3 +1,5 @@
+ALWAYS read ~/workspace/private/agent_agreement/AGENTS.md at the beginning of the session.
+
 - use uv to manage dependency
 - run command with uv like `uv run ...`
 - i've set up the pypi token /user with environment variable "PYPI_TOKEN" and "PYPI_USERNAME", source ~/.bashrc or ~/.zshrc first

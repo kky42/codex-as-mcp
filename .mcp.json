@@ -2,7 +2,11 @@
   "mcpServers": {
     "codex-subagent": {
       "command": "uv",
-      "args": ["run", "python", "/Users/kky/Projects/codex-as-mcp/src/codex_as_mcp/server.py"]
+      "args": [
+        "run",
+        "python",
+        "/Users/kky/workspace/codex-as-mcp/src/codex_as_mcp/server.py"
+      ]
     }
   }
 }

@@ -35,7 +35,7 @@ Inputs:
 - `prompt` (string): Everything the agent should know/do.
 
 Behavior:
-- Executes: `codex e --cd <server working directory> --skip-git-repo-check --full-auto "<prompt>"`
+- Executes: `codex e --cd <server working directory> --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox "<prompt>"`
 - Wraps the prompt in quotes; escapes inner quotes.
 - Reads the Codex agent's last message from disk and returns it; heartbeats keep Inspector sessions alive.
 

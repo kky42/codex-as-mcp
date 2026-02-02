@@ -9,9 +9,9 @@ It exposes two tools that run Codex in the server's current working directory:
 - `spawn_agents_parallel(agents: list[dict])`
 
 Under the hood, each agent runs something like:
-`codex exec --cd <server cwd> --skip-git-repo-check --full-auto "<prompt>"`.
+`codex exec --cd <server cwd> --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox "<prompt>"`.
 
-Note: `--full-auto` means the agent can run commands and edit files in that directory. Use this server only in repos you trust.
+Note: `--dangerously-bypass-approvals-and-sandbox` disables sandboxing and confirmation prompts. Use this server only in repos you trust.
 
 ## Use it in Claude Code
 

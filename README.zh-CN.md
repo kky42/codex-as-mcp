@@ -2,7 +2,7 @@
 
 **通过 Codex-as-MCP 生成多个子代理**
 
-每个子代理都会在 MCP 服务器当前工作目录中以完全自主的方式运行 `codex e --full-auto`。非常适合 Plus/Pro/Team 订阅用户使用 GPT-5 能力。
+每个子代理都会在 MCP 服务器当前工作目录中以完全自主的方式运行 `codex e --dangerously-bypass-approvals-and-sandbox`。非常适合 Plus/Pro/Team 订阅用户使用 GPT-5 能力。
 
 **在 Claude Code 中使用**
 

@@ -5,7 +5,7 @@ Tool: spawn_agent(prompt: str) -> str
 - Runs the Codex CLI agent and returns its final response as the tool result.
 
 Command executed:
-    codex e --cd {os.getcwd()} --skip-git-repo-check --full-auto \
+    codex e --cd {os.getcwd()} --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \
         --output-last-message {temp_output} "{prompt}"
 
 Notes:
@@ -108,7 +108,7 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
             "--cd",
             work_directory,
             "--skip-git-repo-check",
-            "--full-auto",
+            "--dangerously-bypass-approvals-and-sandbox",
             "--output-last-message",
             str(output_path),
             quoted_prompt,

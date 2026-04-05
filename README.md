@@ -1,3 +1,35 @@
+
+<div align="right">
+  <details>
+    <summary >🌐 Language</summary>
+    <div>
+      <div align="center">
+        <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=en">English</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=zh-CN">简体中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=zh-TW">繁體中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=ja">日本語</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=ko">한국어</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=hi">हिन्दी</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=th">ไทย</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=fr">Français</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=de">Deutsch</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=es">Español</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=it">Italiano</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=ru">Русский</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=pt">Português</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=nl">Nederlands</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=pl">Polski</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=ar">العربية</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=fa">فارسی</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=tr">Türkçe</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=vi">Tiếng Việt</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=id">Bahasa Indonesia</a>
+        | <a href="https://openaitx.github.io/view.html?user=kky42&project=codex-as-mcp&lang=as">অসমীয়া</
+      </div>
+    </div>
+  </details>
+</div>
+
 # codex-as-mcp
 
 [中文版](./README.zh-CN.md)

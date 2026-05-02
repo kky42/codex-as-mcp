@@ -99,9 +99,6 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
         output_path = Path(temp_dir) / "last_message.md"
         output_path.touch()
 
-        # Quote the prompt so Codex CLI receives it wrapped in "..."
-        quoted_prompt = '"' + prompt.replace('"', '\\"') + '"'
-
         cmd = [
             codex_exec,
             "e",
@@ -111,7 +108,7 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
             "--dangerously-bypass-approvals-and-sandbox",
             "--output-last-message",
             str(output_path),
-            quoted_prompt,
+            "-",  # read prompt from stdin
         ]
 
         # Initial progress ping
@@ -123,12 +120,26 @@ async def spawn_agent(ctx: Context, prompt: str) -> str:
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=_build_child_env(),
             )
         except Exception as e:
             return f"Error: Failed to launch Codex agent: {e}"
+
+        # Send prompt via stdin, then close to signal EOF
+        try:
+            proc.stdin.write(prompt.encode("utf-8"))
+            await proc.stdin.drain()
+            proc.stdin.close()
+        except (BrokenPipeError, ConnectionResetError, OSError) as e:
+            # Child process exited before we finished writing
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            return f"Error: Failed to send prompt to Codex agent: {e}"
 
         stdout_task = asyncio.create_task(proc.stdout.read()) if proc.stdout else None
         stderr_task = asyncio.create_task(proc.stderr.read()) if proc.stderr else None

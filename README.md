@@ -9,7 +9,9 @@ It exposes two tools that run Codex in the server's current working directory:
 - `spawn_agents_parallel(agents: list[dict])`
 
 Under the hood, each agent runs something like:
-`codex exec --cd <server cwd> --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox "<prompt>"`.
+`codex exec --cd <server cwd> --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -`.
+
+The prompt is sent through stdin and then closed. This avoids command-line quoting/length issues and prevents Codex from accidentally reading from the MCP server's JSON-RPC stdin pipe.
 
 Note: `--dangerously-bypass-approvals-and-sandbox` disables sandboxing and confirmation prompts. Use this server only in repos you trust.
 

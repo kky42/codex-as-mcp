@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Send Codex prompts through stdin using `codex e ... -` and close the pipe, preventing Windows MCP tool-call hangs caused by inherited JSON-RPC stdin and avoiding command-line prompt truncation/quoting issues.
+
+### Added
+- Add GitHub Actions CI across Linux, macOS, and Windows for Python 3.11 and 3.12.
+- Add regression tests for stdin prompt delivery and stdin write failure handling.
+
 ## [2026.2.2.1] - 2026-02-02
 
 ### 🛠️ Fixed

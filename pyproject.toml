@@ -37,5 +37,7 @@ packages = ["src/codex_as_mcp"]
 
 [dependency-groups]
 dev = [
+    "build>=1.2.0",
+    "pytest>=8.0.0",
     "twine>=6.1.0",
 ]

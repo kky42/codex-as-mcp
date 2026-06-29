@@ -21,7 +21,6 @@ jobs:
     name: Real provider smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ secrets.CODEX_LIVE_API_KEY != '' }}
 
     steps:
       - uses: actions/checkout@v4

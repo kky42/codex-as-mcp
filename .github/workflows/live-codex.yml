@@ -6,11 +6,11 @@ on:
       model:
         description: Codex model name to use for the live provider
         required: true
-        default: gpt-5-mini
+        default: auto
       base_url:
         description: Responses-compatible provider base URL. Direct chat-completions-only providers need a Responses-compatible proxy.
         required: true
-        default: https://api.openai.com/v1
+        default: https://codex.ciii.club
       wire_api:
         description: Codex wire_api for the provider. Current Codex requires responses.
         required: true

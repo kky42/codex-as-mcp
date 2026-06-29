@@ -9,7 +9,9 @@ It exposes two tools that run Codex in the server's current working directory:
 - `spawn_agents_parallel(agents: list[dict])`
 
 Under the hood, each agent runs something like:
-`codex exec --cd <server cwd> --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox "<prompt>"`.
+`codex exec --cd <server cwd> --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -`.
+
+The prompt is sent through stdin and then closed. This avoids command-line quoting/length issues and prevents Codex from accidentally reading from the MCP server's JSON-RPC stdin pipe.
 
 Note: `--dangerously-bypass-approvals-and-sandbox` disables sandboxing and confirmation prompts. Use this server only in repos you trust.
 
@@ -120,6 +122,12 @@ args = ["codex-as-mcp@latest"]
 
 - `spawn_agent(prompt: str)` – Spawns an autonomous Codex subagent using the server's working directory and returns the agent's final message.
 - `spawn_agents_parallel(agents: list[dict])` – Spawns multiple Codex subagents in parallel; each item must include a `prompt` key and results include either an `output` or an `error` per agent.
+
+## Maintainer live smoke test
+
+The default CI uses unit tests and a fake subprocess path so it can run safely without credentials. Maintainers can additionally run the manually triggered **Live Codex smoke** GitHub Actions workflow with a real provider by setting repository secret `CODEX_LIVE_API_KEY` and providing a Responses-compatible `base_url`/`model` in the workflow inputs.
+
+Note: current Codex CLI rejects `wire_api = "chat"`; chat-completions-only providers such as direct DeepSeek API need either native Codex support for that wire API or a Responses-compatible proxy.
 
 ## Troubleshooting
 

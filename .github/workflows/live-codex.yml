@@ -1,0 +1,55 @@
+name: Live Codex smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Codex model name to use for the live provider
+        required: true
+        default: auto
+      base_url:
+        description: Responses-compatible provider base URL. Direct chat-completions-only providers need a Responses-compatible proxy.
+        required: true
+        default: https://codex.ciii.club
+      wire_api:
+        description: Codex wire_api for the provider. Current Codex requires responses.
+        required: true
+        default: responses
+
+jobs:
+  live-smoke:
+    name: Real provider smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex@latest
+
+      - name: Install Python dependencies
+        run: uv sync --group dev
+
+      - name: Run live Codex smoke test
+        env:
+          CODEX_LIVE_API_KEY: ${{ secrets.CODEX_LIVE_API_KEY }}
+          CODEX_LIVE_MODEL: ${{ inputs.model }}
+          CODEX_LIVE_BASE_URL: ${{ inputs.base_url }}
+          CODEX_LIVE_WIRE_API: ${{ inputs.wire_api }}
+        run: uv run python tests/live_codex_smoke.py

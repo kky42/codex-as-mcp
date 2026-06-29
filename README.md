@@ -123,6 +123,12 @@ args = ["codex-as-mcp@latest"]
 - `spawn_agent(prompt: str)` – Spawns an autonomous Codex subagent using the server's working directory and returns the agent's final message.
 - `spawn_agents_parallel(agents: list[dict])` – Spawns multiple Codex subagents in parallel; each item must include a `prompt` key and results include either an `output` or an `error` per agent.
 
+## Maintainer live smoke test
+
+The default CI uses unit tests and a fake subprocess path so it can run safely without credentials. Maintainers can additionally run the manually triggered **Live Codex smoke** GitHub Actions workflow with a real provider by setting repository secret `CODEX_LIVE_API_KEY` and providing a Responses-compatible `base_url`/`model` in the workflow inputs.
+
+Note: current Codex CLI rejects `wire_api = "chat"`; chat-completions-only providers such as direct DeepSeek API need either native Codex support for that wire API or a Responses-compatible proxy.
+
 ## Troubleshooting
 
 ### `spawn_agent` times out after ~60s

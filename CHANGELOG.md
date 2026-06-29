@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add GitHub Actions CI across Linux, macOS, and Windows for Python 3.11 and 3.12.
 - Add regression tests for stdin prompt delivery and stdin write failure handling.
+- Add an optional manually triggered live Codex smoke workflow gated by `CODEX_LIVE_API_KEY` for maintainers with a Responses-compatible provider.
 
 ## [2026.2.2.1] - 2026-02-02
 
